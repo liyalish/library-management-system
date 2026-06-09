@@ -1,0 +1,124 @@
+/* Library — warm beige theme, layered on top of Bootstrap */
+
+:root {
+    --beige-bg: #F5EFE6;
+    --beige-card: #FBF7F0;
+    --beige-border: #E3D9C6;
+    --beige-accent: #A67B5B;
+    --beige-accent-dark: #8A6244;
+    --beige-text: #4A3F35;
+    --beige-muted: #8C7B68;
+}
+
+body {
+    background-color: var(--beige-bg) !important;
+    color: var(--beige-text);
+}
+
+/* Navbar */
+.navbar {
+    background-color: var(--beige-card) !important;
+    border-bottom: 1px solid var(--beige-border) !important;
+}
+
+.navbar-brand {
+    color: var(--beige-accent-dark) !important;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* Cards and tables */
+.card {
+    background-color: var(--beige-card);
+    border: 1px solid var(--beige-border);
+    border-radius: 12px;
+}
+
+.table {
+    background-color: var(--beige-card) !important;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.table thead.table-light th {
+    background-color: #EDE4D3 !important;
+    color: var(--beige-text);
+    border-color: var(--beige-border);
+}
+
+.table-hover tbody tr:hover {
+    background-color: #F0E8DA;
+}
+
+/* Primary buttons → warm brown */
+.btn-primary {
+    background-color: var(--beige-accent) !important;
+    border-color: var(--beige-accent) !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--beige-accent-dark) !important;
+    border-color: var(--beige-accent-dark) !important;
+}
+
+.btn-success {
+    background-color: #7E9B6E !important;
+    border-color: #7E9B6E !important;
+}
+
+.btn-success:hover {
+    background-color: #6B8A5C !important;
+    border-color: #6B8A5C !important;
+}
+
+.btn-outline-primary {
+    color: var(--beige-accent-dark) !important;
+    border-color: var(--beige-accent) !important;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--beige-accent) !important;
+    color: #fff !important;
+}
+
+.btn-outline-secondary {
+    color: var(--beige-muted) !important;
+    border-color: var(--beige-border) !important;
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--beige-border) !important;
+    color: var(--beige-text) !important;
+}
+
+/* Inputs */
+.form-control, .form-select {
+    background-color: #fff;
+    border-color: var(--beige-border);
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--beige-accent);
+    box-shadow: 0 0 0 0.2rem rgba(166, 123, 91, 0.15);
+}
+
+/* Pagination */
+.page-link {
+    color: var(--beige-accent-dark);
+}
+
+.page-item.active .page-link {
+    background-color: var(--beige-accent);
+    border-color: var(--beige-accent);
+}
+
+/* Headings */
+h1, h3, .card-title {
+    color: var(--beige-accent-dark);
+}
+
+/* Badges keep their colors but soften info */
+.badge.bg-info {
+    background-color: #C9B79C !important;
+    color: var(--beige-text) !important;
+}
