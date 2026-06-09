@@ -1,12 +1,16 @@
 package com.library.controller;
 
 import com.library.exception.ServiceException;
+import com.library.model.RegistrationForm;
 import com.library.model.User;
 import com.library.service.UserService;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -64,35 +68,38 @@ public class AuthController {
     }
 
     /**
-     * Shows the registration form.
+     * Shows the registration form with an empty form-backing object.
      *
+     * @param model the view model
      * @return the register view name
      */
     @GetMapping("/register")
-    public String registerForm() {
+    public String registerForm(Model model) {
+        model.addAttribute("registrationForm", new RegistrationForm());
         return "register";
     }
 
     /**
-     * Processes a registration. On success logs the user in and redirects to books.
+     * Processes a registration. The form is validated server-side via Bean Validation;
+     * if there are errors they are shown on the form. On success the user is logged in.
      *
-     * @param username the desired username
-     * @param password the chosen password
-     * @param fullName the user's full name
-     * @param email    the user's email
-     * @param session  the HTTP session
-     * @param model    the view model
-     * @return a redirect on success, or the register view with an error on failure
+     * @param form    the validated registration form
+     * @param result  the binding/validation result
+     * @param session the HTTP session
+     * @param model   the view model
+     * @return the register view on validation error, otherwise a redirect to books
      */
     @PostMapping("/register")
-    public String register(@RequestParam String username,
-                           @RequestParam String password,
-                           @RequestParam String fullName,
-                           @RequestParam String email,
+    public String register(@Valid @ModelAttribute("registrationForm") RegistrationForm form,
+                           BindingResult result,
                            HttpSession session,
                            Model model) {
+        if (result.hasErrors()) {
+            return "register";
+        }
         try {
-            User user = userService.register(username, password, fullName, email);
+            User user = userService.register(form.getUsername(), form.getPassword(),
+                    form.getFullName(), form.getEmail());
             session.setAttribute("currentUser", user);
             return "redirect:/books";
         } catch (ServiceException e) {

@@ -102,4 +102,74 @@ public class BookRequest {
     public void setReturnDate(LocalDate returnDate) {
         this.returnDate = returnDate;
     }
+
+    /**
+     * Creates a new builder for constructing a {@link BookRequest} step by step.
+     *
+     * @return a new builder
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Builder for {@link BookRequest} (Builder design pattern). Allows readable,
+     * step-by-step construction of a request without a long constructor.
+     */
+    public static class Builder {
+        private final BookRequest request = new BookRequest();
+
+        /**
+         * Sets the reader id.
+         *
+         * @param readerId the reader's user id
+         * @return this builder
+         */
+        public Builder readerId(int readerId) {
+            request.readerId = readerId;
+            return this;
+        }
+
+        /**
+         * Sets the book id.
+         *
+         * @param bookId the requested book id
+         * @return this builder
+         */
+        public Builder bookId(int bookId) {
+            request.bookId = bookId;
+            return this;
+        }
+
+        /**
+         * Sets the request type (HOME or READING_ROOM).
+         *
+         * @param requestType the request type
+         * @return this builder
+         */
+        public Builder requestType(String requestType) {
+            request.requestType = requestType;
+            return this;
+        }
+
+        /**
+         * Sets the status.
+         *
+         * @param status the request status
+         * @return this builder
+         */
+        public Builder status(String status) {
+            request.status = status;
+            return this;
+        }
+
+        /**
+         * Returns the fully constructed {@link BookRequest}.
+         *
+         * @return the built request
+         */
+        public BookRequest build() {
+            return request;
+        }
+    }
 }

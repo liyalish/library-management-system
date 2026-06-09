@@ -40,10 +40,12 @@ public class RequestServiceImpl implements RequestService {
         if (!"HOME".equals(requestType) && !"READING_ROOM".equals(requestType)) {
             throw new ServiceException("Invalid request type: " + requestType);
         }
-        BookRequest request = new BookRequest();
-        request.setReaderId(readerId);
-        request.setBookId(bookId);
-        request.setRequestType(requestType);
+        BookRequest request = BookRequest.builder()
+                .readerId(readerId)
+                .bookId(bookId)
+                .requestType(requestType)
+                .status("PENDING")
+                .build();
         BookRequest created = requestDao.create(request);
         LOGGER.info("Reader {} requested book {}", readerId, bookId);
         return created;

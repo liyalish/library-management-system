@@ -84,6 +84,20 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     /**
+     * Uses the message source for Bean Validation messages, so validation texts can be
+     * localized and referenced as {validation.*} keys.
+     *
+     * @return a validator backed by the message source
+     */
+    @Override
+    public org.springframework.validation.Validator getValidator() {
+        org.springframework.validation.beanvalidation.LocalValidatorFactoryBean validator =
+                new org.springframework.validation.beanvalidation.LocalValidatorFactoryBean();
+        validator.setValidationMessageSource(messageSource());
+        return validator;
+    }
+
+    /**
      * Stores the chosen locale in the user session, defaulting to English.
      *
      * @return the locale resolver

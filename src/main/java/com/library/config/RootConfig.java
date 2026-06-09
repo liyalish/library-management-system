@@ -24,23 +24,23 @@ import org.springframework.context.annotation.Configuration;
 public class RootConfig {
 
     /**
-     * Creates the user DAO bean.
+     * Creates the user DAO bean via the DAO factory (Factory Method pattern).
      *
      * @return a {@link UserDao} implementation
      */
     @Bean
     public UserDao userDao() {
-        return new UserDaoImpl();
+        return com.library.dao.DaoFactory.getInstance().createUserDao();
     }
 
     /**
-     * Creates the book DAO bean.
+     * Creates the book DAO bean via the DAO factory.
      *
      * @return a {@link BookDao} implementation
      */
     @Bean
     public BookDao bookDao() {
-        return new BookDaoImpl();
+        return com.library.dao.DaoFactory.getInstance().createBookDao();
     }
 
     /**
@@ -72,7 +72,7 @@ public class RootConfig {
      */
     @Bean
     public BookRequestDao bookRequestDao() {
-        return new BookRequestDaoImpl();
+        return com.library.dao.DaoFactory.getInstance().createBookRequestDao();
     }
 
     /**
