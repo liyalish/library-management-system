@@ -1,0 +1,83 @@
+# Library Management System
+
+A web application for managing a library: readers browse and request books,
+librarians process lending and returns, and administrators manage users and the catalog.
+
+Final Java course project, built with the required stack: **Servlets, Spring Core,
+Spring MVC, and plain JDBC** (no ORM, no Spring Boot).
+
+## Tech stack
+
+- Java 17
+- Spring Framework 6.2 (Core + MVC) — classic configuration, deployed as a WAR
+- Plain JDBC with a custom thread-safe connection pool (no Hibernate/JPA)
+- PostgreSQL
+- Thymeleaf (server-side templates)
+- Bootstrap (responsive UI)
+- BCrypt (password hashing)
+- Log4j2 via SLF4J (logging)
+- JUnit 5 + Mockito (tests)
+- Maven (build)
+
+## Architecture
+
+Layered architecture following the MVC pattern:
+
+```
+Controller (Spring MVC)  ->  Service (business logic)  ->  DAO (JDBC)  ->  PostgreSQL
+```
+
+Packages: `config`, `controller`, `service`, `dao`, `model`, `util`, `exception`.
+
+## Prerequisites
+
+- JDK 17+
+- Maven 3.9+
+- PostgreSQL 14+
+- Apache Tomcat 10.1+ (Jakarta EE 10 / Servlet 6.0)
+
+## Setup
+
+1. Create the database:
+   ```sql
+   CREATE DATABASE library_db ENCODING 'UTF8';
+   ```
+2. Run the scripts in `db/`:
+   ```bash
+   psql -U postgres -d library_db -f db/schema.sql
+   psql -U postgres -d library_db -f db/data.sql
+   ```
+3. Update credentials in `src/main/resources/application.properties` if needed.
+
+## Build and run
+
+```bash
+mvn clean package
+```
+
+Deploy the generated `target/library.war` to Tomcat, then open:
+
+```
+http://localhost:8080/library/
+```
+
+Demo accounts (password for all = `password`):
+
+| Username  | Role      |
+|-----------|-----------|
+| admin     | ADMIN     |
+| librarian | LIBRARIAN |
+| reader    | READER    |
+
+## Run tests
+
+```bash
+mvn test
+```
+
+Coverage report (JaCoCo) is generated at `target/site/jacoco/index.html`.
+
+## Internationalization
+
+The interface supports English and Russian; switch languages with the `?lang=en` /
+`?lang=ru` parameter. Localized strings live in `src/main/resources/messages*.properties`.

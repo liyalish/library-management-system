@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="#{register.title}">Register</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+<nav class="navbar navbar-expand bg-white border-bottom px-4">
+    <span class="navbar-brand" th:text="#{app.title}">Library</span>
+    <div class="ms-auto">
+        <a class="btn btn-sm btn-outline-secondary" href="?lang=en">EN</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?lang=ru">RU</a>
+    </div>
+</nav>
+
+<div class="container" style="max-width: 420px; margin-top: 50px;">
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <h4 class="card-title mb-4" th:text="#{register.title}">Register</h4>
+
+            <div class="alert alert-danger" th:if="${registerError}" th:text="${registerError}">
+                Error
+            </div>
+
+            <form method="post" th:action="@{/register}">
+                <div class="mb-3">
+                    <label class="form-label" th:text="#{login.username}">Username</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" th:text="#{register.fullname}">Full name</label>
+                    <input type="text" name="fullName" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" th:text="#{register.email}">Email</label>
+                    <input type="email" name="email" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label" th:text="#{login.password}">Password</label>
+                    <input type="password" name="password" class="form-control" required minlength="4">
+                </div>
+                <button type="submit" class="btn btn-primary w-100" th:text="#{register.submit}">Create account</button>
+            </form>
+
+            <div class="text-center mt-3">
+                <a th:href="@{/login}" th:text="#{nav.login}">Log in</a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
