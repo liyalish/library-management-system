@@ -19,6 +19,9 @@
 <div class="container mt-4">
     <h3 class="mb-3">My requests</h3>
 
+    <div class="alert alert-success" th:if="${message}" th:text="${message}"></div>
+    <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
     <table class="table table-hover bg-white">
         <thead class="table-light">
         <tr>
@@ -26,36 +29,65 @@
             <th>Book</th>
             <th>Type</th>
             <th>Status</th>
-            <th>Return date</th>
+            <th>Return deadline</th>
             <th>Action</th>
         </tr>
         </thead>
+
         <tbody>
         <tr th:if="${requests.isEmpty()}">
             <td colspan="6" class="text-center text-muted">You have no requests yet</td>
         </tr>
+
         <tr th:each="r : ${requests}">
             <td th:text="${r.requestId}">1</td>
             <td th:text="${r.bookTitle}">Book</td>
             <td th:text="${r.requestType}">HOME</td>
+
             <td>
-                <span class="badge"
+                <span th:if="${r.overdue}" class="badge bg-danger">OVERDUE</span>
+
+                <span th:unless="${r.overdue}" class="badge"
                       th:classappend="${r.status == 'PENDING'} ? 'bg-warning text-dark'
                                     : (${r.status == 'ISSUED'} ? 'bg-primary'
-                                    : (${r.status == 'RETURNED'} ? 'bg-success' : 'bg-secondary'))"
-                      th:text="${r.status}">PENDING</span>
+                                    : (${r.status == 'PENDING_RETURN'} ? 'bg-info text-dark'
+                                    : (${r.status == 'RETURNED'} ? 'bg-success' : 'bg-secondary')))"
+                      th:text="${r.status}">
+                    PENDING
+                </span>
             </td>
-            <td th:text="${r.returnDate}">-</td>
+
+            <td th:text="${r.returnDate != null ? r.returnDate : '-'}">-</td>
+
             <td>
                 <form th:if="${r.status == 'PENDING'}" method="post"
                       th:action="@{'/requests/' + ${r.requestId} + '/cancel'}"
                       onsubmit="return confirm('Cancel this request?');">
                     <button class="btn btn-sm btn-outline-danger" type="submit">Cancel</button>
                 </form>
+
+                <form th:if="${r.status == 'ISSUED'}" method="post"
+                      th:action="@{'/requests/' + ${r.requestId} + '/return'}"
+                      onsubmit="return confirm('Return this book?');">
+                    <button class="btn btn-sm btn-success" type="submit">Return</button>
+                </form>
+
+                <span th:if="${r.status == 'PENDING_RETURN'}" class="text-muted small">
+                    Waiting librarian approval
+                </span>
             </td>
         </tr>
         </tbody>
     </table>
+
+    <div class="mt-4 border-top pt-3">
+        <form method="post" th:action="@{/account/delete}"
+              onsubmit="return confirm('Delete your account? You can do this only if you have no active requests.');">
+            <button class="btn btn-outline-danger btn-sm" type="submit">
+                Delete my account
+            </button>
+        </form>
+    </div>
 </div>
 </body>
 </html>

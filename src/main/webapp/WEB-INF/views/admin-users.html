@@ -10,9 +10,10 @@
 <body>
 <nav class="navbar navbar-expand bg-white border-bottom px-4">
     <a class="navbar-brand" th:href="@{/books}" th:text="#{app.title}">Library</a>
+
     <div class="ms-auto d-flex align-items-center gap-2">
         <a class="btn btn-sm btn-outline-secondary" th:href="@{/books}">Catalog</a>
-        <a class="btn btn-sm btn-outline-secondary" th:href="@{/librarian/requests}">Requests</a>
+        <a class="btn btn-sm btn-outline-secondary" th:href="@{/admin/requests}">Requests</a>
         <a class="btn btn-sm btn-outline-danger" th:href="@{/logout}" th:text="#{nav.logout}">Log out</a>
     </div>
 </nav>
@@ -22,6 +23,64 @@
 
     <div class="alert alert-success" th:if="${message}" th:text="${message}"></div>
     <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title mb-3">Create librarian account</h5>
+
+            <form method="post" th:action="@{/admin/users/librarians}" autocomplete="off">
+                <!-- Fake fields to prevent browser autofill -->
+                <input type="text" name="fakeUsername" autocomplete="username"
+                       style="position:absolute; left:-9999px; opacity:0;">
+                <input type="password" name="fakePassword" autocomplete="current-password"
+                       style="position:absolute; left:-9999px; opacity:0;">
+
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text"
+                               name="username"
+                               class="form-control"
+                               placeholder="Username"
+                               autocomplete="new-username"
+                               required
+                               minlength="3">
+                    </div>
+
+                    <div class="col-md-3">
+                        <input type="text"
+                               name="fullName"
+                               class="form-control"
+                               placeholder="Full name"
+                               autocomplete="off"
+                               required>
+                    </div>
+
+                    <div class="col-md-3">
+                        <input type="email"
+                               name="email"
+                               class="form-control"
+                               placeholder="Email"
+                               autocomplete="new-email"
+                               required>
+                    </div>
+
+                    <div class="col-md-2">
+                        <input type="password"
+                               name="password"
+                               class="form-control"
+                               placeholder="Password"
+                               autocomplete="new-password"
+                               required
+                               minlength="4">
+                    </div>
+
+                    <div class="col-md-1 d-grid">
+                        <button class="btn btn-primary" type="submit">Add</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <table class="table table-hover bg-white align-middle">
         <thead class="table-light">
@@ -35,30 +94,50 @@
             <th>Actions</th>
         </tr>
         </thead>
+
         <tbody>
         <tr th:each="u : ${users}">
             <td th:text="${u.userId}">1</td>
-            <td th:text="${u.username}">user</td>
-            <td th:text="${u.fullName}">Name</td>
+            <td th:text="${u.username}">username</td>
+            <td th:text="${u.fullName}">Full name</td>
             <td th:text="${u.email}">email</td>
-            <td><span class="badge bg-info text-dark" th:text="${u.role}">ROLE</span></td>
+
+            <td>
+                <span class="badge bg-info text-dark" th:text="${u.role}">ROLE</span>
+            </td>
+
             <td>
                 <span th:if="${u.blocked}" class="badge bg-danger">Blocked</span>
                 <span th:unless="${u.blocked}" class="badge bg-success">Active</span>
             </td>
-            <td class="d-flex gap-1">
-                <!-- Block / Unblock toggle -->
-                <form method="post" th:action="@{'/admin/users/' + ${u.userId} + '/block'}">
+
+            <td class="d-flex gap-2 align-items-center">
+                <form th:if="${u.role.name() != 'ADMIN'}"
+                      method="post"
+                      th:action="@{'/admin/users/' + ${u.userId} + '/block'}">
                     <input type="hidden" name="blocked" th:value="${!u.blocked}">
                     <button class="btn btn-sm btn-outline-warning" type="submit"
-                            th:text="${u.blocked} ? 'Unblock' : 'Block'">Block
+                            th:text="${u.blocked} ? 'Unblock' : 'Block'">
+                        Block
                     </button>
                 </form>
-                <!-- Delete -->
-                <form method="post" th:action="@{'/admin/users/' + ${u.userId} + '/delete'}"
-                      onsubmit="return confirm('Delete this user?');">
-                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+
+                <form th:if="${u.role.name() == 'LIBRARIAN'}"
+                      method="post"
+                      th:action="@{'/admin/users/' + ${u.userId} + '/delete'}"
+                      onsubmit="return confirm('Delete this librarian account?');">
+                    <button class="btn btn-sm btn-outline-danger" type="submit">
+                        Delete
+                    </button>
                 </form>
+
+                <span th:if="${u.role.name() == 'ADMIN'}" class="text-muted small">
+                    Protected
+                </span>
+
+                <span th:if="${u.role.name() == 'READER'}" class="text-muted small">
+                    Reader can delete own account
+                </span>
             </td>
         </tr>
         </tbody>
@@ -66,9 +145,12 @@
 
     <nav th:if="${totalPages > 1}">
         <ul class="pagination">
-            <li class="page-item" th:each="i : ${#numbers.sequence(1, totalPages)}"
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(1, totalPages)}"
                 th:classappend="${i == currentPage} ? 'active'">
-                <a class="page-link" th:href="@{/admin/users(page=${i})}" th:text="${i}">1</a>
+                <a class="page-link"
+                   th:href="@{/admin/users(page=${i})}"
+                   th:text="${i}">1</a>
             </li>
         </ul>
     </nav>

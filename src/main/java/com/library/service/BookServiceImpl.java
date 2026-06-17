@@ -5,24 +5,15 @@ import com.library.exception.ServiceException;
 import com.library.model.Book;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-/**
- * Default implementation of {@link BookService}. Contains catalog business rules and
- * delegates persistence to {@link BookDao}.
- */
+@Service
 public class BookServiceImpl implements BookService {
-
     private static final Logger LOGGER = LoggerFactory.getLogger(BookServiceImpl.class);
-
     private final BookDao bookDao;
 
-    /**
-     * Creates the service with the given DAO (constructor injection).
-     *
-     * @param bookDao the book data-access object
-     */
     public BookServiceImpl(BookDao bookDao) {
         this.bookDao = bookDao;
     }

@@ -3,6 +3,7 @@ package com.library.dao;
 import com.library.exception.DaoException;
 import com.library.model.Book;
 import com.library.util.ConnectionPool;
+import org.springframework.stereotype.Repository;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,37 +14,60 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * JDBC implementation of {@link BookDao}. Uses {@link PreparedStatement} for every query
- * (including the search filter) to prevent SQL injection. Joins the authors table so that
- * the author name is available for display.
- */
+@Repository
 public class BookDaoImpl implements BookDao {
-
     private final ConnectionPool pool = ConnectionPool.getInstance();
 
-    private static final String SELECT_BASE =
-            "SELECT b.book_id, b.title, b.author_id, b.description, b.publish_year, "
-                    + "a.full_name AS author_name "
-                    + "FROM books b JOIN authors a ON b.author_id = a.author_id ";
+    private static final String SELECT_BASE = """
+            SELECT b.book_id,
+                   b.title,
+                   b.description,
+                   b.publish_year,
+                   COALESCE(string_agg(DISTINCT a.full_name, ', '), '') AS author_name,
+                   COALESCE(string_agg(DISTINCT ba.author_id::text, ','), '') AS author_ids
+            FROM books b
+            LEFT JOIN book_authors ba ON b.book_id = ba.book_id
+            LEFT JOIN authors a ON ba.author_id = a.author_id
+            """;
 
     @Override
     public Book create(Book book) {
-        String sql = "INSERT INTO books (title, author_id, description, publish_year) "
-                + "VALUES (?, ?, ?, ?)";
-        try (Connection conn = pool.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, book.getTitle());
-            ps.setInt(2, book.getAuthorId());
-            ps.setString(3, book.getDescription());
-            setNullableInt(ps, 4, book.getPublishYear());
-            ps.executeUpdate();
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                if (keys.next()) {
-                    book.setBookId(keys.getInt(1));
+        String insertBookSql = """
+                INSERT INTO books (title, description, publish_year)
+                VALUES (?, ?, ?)
+                """;
+
+        try (Connection conn = pool.getConnection()) {
+            try {
+                conn.setAutoCommit(false);
+
+                try (PreparedStatement ps = conn.prepareStatement(insertBookSql, Statement.RETURN_GENERATED_KEYS)) {
+                    ps.setString(1, book.getTitle());
+                    ps.setString(2, book.getDescription());
+                    setNullableInt(ps, 3, book.getPublishYear());
+
+                    ps.executeUpdate();
+
+                    try (ResultSet keys = ps.getGeneratedKeys()) {
+                        if (keys.next()) {
+                            book.setBookId(keys.getInt(1));
+                        }
+                    }
                 }
+
+                insertBookAuthors(conn, book.getBookId(), book.getAuthorIds());
+
+                conn.commit();
+                return book;
+
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+
+            } finally {
+                conn.setAutoCommit(true);
             }
-            return book;
+
         } catch (SQLException e) {
             throw new DaoException("Failed to create book: " + book.getTitle(), e);
         }
@@ -51,13 +75,20 @@ public class BookDaoImpl implements BookDao {
 
     @Override
     public Optional<Book> findById(int bookId) {
-        String sql = SELECT_BASE + "WHERE b.book_id = ?";
+        String sql = SELECT_BASE + """
+                WHERE b.book_id = ?
+                GROUP BY b.book_id, b.title, b.description, b.publish_year
+                """;
+
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, bookId);
+
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
             }
+
         } catch (SQLException e) {
             throw new DaoException("Failed to find book by id: " + bookId, e);
         }
@@ -66,24 +97,37 @@ public class BookDaoImpl implements BookDao {
     @Override
     public List<Book> findAll(String search, int limit, int offset) {
         boolean hasSearch = search != null && !search.isBlank();
+
         String sql = SELECT_BASE
                 + (hasSearch ? "WHERE LOWER(b.title) LIKE ? " : "")
-                + "ORDER BY b.title LIMIT ? OFFSET ?";
+                + """
+                  GROUP BY b.book_id, b.title, b.description, b.publish_year
+                  ORDER BY b.title
+                  LIMIT ? OFFSET ?
+                  """;
+
         List<Book> books = new ArrayList<>();
+
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
-            int idx = 1;
+
+            int index = 1;
+
             if (hasSearch) {
-                ps.setString(idx++, "%" + search.toLowerCase() + "%");
+                ps.setString(index++, "%" + search.toLowerCase() + "%");
             }
-            ps.setInt(idx++, limit);
-            ps.setInt(idx, offset);
+
+            ps.setInt(index++, limit);
+            ps.setInt(index, offset);
+
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     books.add(mapRow(rs));
                 }
             }
+
             return books;
+
         } catch (SQLException e) {
             throw new DaoException("Failed to list books", e);
         }
@@ -92,16 +136,21 @@ public class BookDaoImpl implements BookDao {
     @Override
     public int count(String search) {
         boolean hasSearch = search != null && !search.isBlank();
+
         String sql = "SELECT COUNT(*) FROM books b"
                 + (hasSearch ? " WHERE LOWER(b.title) LIKE ?" : "");
+
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+
             if (hasSearch) {
                 ps.setString(1, "%" + search.toLowerCase() + "%");
             }
+
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
             }
+
         } catch (SQLException e) {
             throw new DaoException("Failed to count books", e);
         }
@@ -109,16 +158,37 @@ public class BookDaoImpl implements BookDao {
 
     @Override
     public void update(Book book) {
-        String sql = "UPDATE books SET title = ?, author_id = ?, description = ?, "
-                + "publish_year = ? WHERE book_id = ?";
-        try (Connection conn = pool.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, book.getTitle());
-            ps.setInt(2, book.getAuthorId());
-            ps.setString(3, book.getDescription());
-            setNullableInt(ps, 4, book.getPublishYear());
-            ps.setInt(5, book.getBookId());
-            ps.executeUpdate();
+        String updateBookSql = """
+                UPDATE books
+                SET title = ?, description = ?, publish_year = ?
+                WHERE book_id = ?
+                """;
+
+        try (Connection conn = pool.getConnection()) {
+            try {
+                conn.setAutoCommit(false);
+
+                try (PreparedStatement ps = conn.prepareStatement(updateBookSql)) {
+                    ps.setString(1, book.getTitle());
+                    ps.setString(2, book.getDescription());
+                    setNullableInt(ps, 3, book.getPublishYear());
+                    ps.setInt(4, book.getBookId());
+                    ps.executeUpdate();
+                }
+
+                deleteBookAuthors(conn, book.getBookId());
+                insertBookAuthors(conn, book.getBookId(), book.getAuthorIds());
+
+                conn.commit();
+
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+
+            } finally {
+                conn.setAutoCommit(true);
+            }
+
         } catch (SQLException e) {
             throw new DaoException("Failed to update book id: " + book.getBookId(), e);
         }
@@ -127,23 +197,45 @@ public class BookDaoImpl implements BookDao {
     @Override
     public void delete(int bookId) {
         String sql = "DELETE FROM books WHERE book_id = ?";
+
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, bookId);
             ps.executeUpdate();
+
         } catch (SQLException e) {
             throw new DaoException("Failed to delete book id: " + bookId, e);
         }
     }
 
-    /**
-     * Sets an integer parameter that may be null.
-     *
-     * @param ps    the prepared statement
-     * @param index the parameter index
-     * @param value the value, possibly null
-     * @throws SQLException if the parameter cannot be set
-     */
+    private void insertBookAuthors(Connection conn, int bookId, List<Integer> authorIds) throws SQLException {
+        if (authorIds == null || authorIds.isEmpty()) {
+            throw new SQLException("Book must have at least one author");
+        }
+
+        String sql = "INSERT INTO book_authors (book_id, author_id) VALUES (?, ?)";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (Integer authorId : authorIds) {
+                ps.setInt(1, bookId);
+                ps.setInt(2, authorId);
+                ps.addBatch();
+            }
+
+            ps.executeBatch();
+        }
+    }
+
+    private void deleteBookAuthors(Connection conn, int bookId) throws SQLException {
+        String sql = "DELETE FROM book_authors WHERE book_id = ?";
+
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, bookId);
+            ps.executeUpdate();
+        }
+    }
+
     private void setNullableInt(PreparedStatement ps, int index, Integer value) throws SQLException {
         if (value == null) {
             ps.setNull(index, java.sql.Types.INTEGER);
@@ -152,22 +244,18 @@ public class BookDaoImpl implements BookDao {
         }
     }
 
-    /**
-     * Maps the current row of a ResultSet to a {@link Book} object.
-     *
-     * @param rs the result set positioned on a row
-     * @return the mapped book
-     * @throws SQLException if a column cannot be read
-     */
     private Book mapRow(ResultSet rs) throws SQLException {
         Book book = new Book();
+
         book.setBookId(rs.getInt("book_id"));
         book.setTitle(rs.getString("title"));
-        book.setAuthorId(rs.getInt("author_id"));
         book.setAuthorName(rs.getString("author_name"));
+        book.setAuthorIdsText(rs.getString("author_ids"));
         book.setDescription(rs.getString("description"));
+
         int year = rs.getInt("publish_year");
         book.setPublishYear(rs.wasNull() ? null : year);
+
         return book;
     }
 }

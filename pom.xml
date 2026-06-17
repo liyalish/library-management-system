@@ -135,7 +135,7 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.2</version>
             </plugin>
-            <!-- JaCoCo: test coverage report (optional, for the >=50% criterion) -->
+            <!-- JaCoCo-->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>

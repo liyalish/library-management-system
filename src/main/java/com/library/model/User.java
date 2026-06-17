@@ -2,12 +2,7 @@ package com.library.model;
 
 import java.time.LocalDateTime;
 
-/**
- * Represents a system user (reader, librarian, or administrator).
- * Mirrors the {@code users} table.
- */
 public class User {
-
     private int userId;
     private String username;
     private String passwordHash;

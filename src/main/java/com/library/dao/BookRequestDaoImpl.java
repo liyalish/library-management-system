@@ -3,6 +3,7 @@ package com.library.dao;
 import com.library.exception.DaoException;
 import com.library.model.BookRequest;
 import com.library.util.ConnectionPool;
+import org.springframework.stereotype.Repository;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,12 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * JDBC implementation of {@link BookRequestDao}. Joins users and books so the reader name
- * and book title are available for display. All queries use {@link PreparedStatement}.
- */
+@Repository
 public class BookRequestDaoImpl implements BookRequestDao {
-
     private final ConnectionPool pool = ConnectionPool.getInstance();
 
     private static final String SELECT_BASE =
@@ -31,8 +28,7 @@ public class BookRequestDaoImpl implements BookRequestDao {
 
     @Override
     public BookRequest create(BookRequest request) {
-        String sql = "INSERT INTO book_requests (reader_id, book_id, request_type, status) "
-                + "VALUES (?, ?, ?, 'PENDING')";
+        String sql = "INSERT INTO book_requests (reader_id, book_id, request_type, status) " + "VALUES (?, ?, ?, 'PENDING')";
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setInt(1, request.getReaderId());
@@ -78,8 +74,7 @@ public class BookRequestDaoImpl implements BookRequestDao {
 
     @Override
     public void update(BookRequest request) {
-        String sql = "UPDATE book_requests SET status = ?, copy_id = ?, return_date = ? "
-                + "WHERE request_id = ?";
+        String sql = "UPDATE book_requests SET status = ?, copy_id = ?, return_date = ? " + "WHERE request_id = ?";
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, request.getStatus());
@@ -100,13 +95,27 @@ public class BookRequestDaoImpl implements BookRequestDao {
         }
     }
 
-    /**
-     * Runs a select query that optionally filters by reader id.
-     *
-     * @param sql      the SQL with the SELECT_BASE prefix
-     * @param readerId reader id to filter by, or null for all rows
-     * @return the list of matching requests
-     */
+    @Override
+    public int countActiveByReader(int readerId) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM book_requests
+            WHERE reader_id = ?
+              AND status IN ('PENDING', 'ISSUED', 'PENDING_RETURN')
+            """;
+
+        try (Connection conn = pool.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, readerId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            throw new DaoException("Failed to count active requests for reader: " + readerId, e);
+        }
+    }
+
     private List<BookRequest> queryList(String sql, Integer readerId) {
         List<BookRequest> list = new ArrayList<>();
         try (Connection conn = pool.getConnection();
@@ -125,13 +134,6 @@ public class BookRequestDaoImpl implements BookRequestDao {
         }
     }
 
-    /**
-     * Maps the current row of a ResultSet to a {@link BookRequest}.
-     *
-     * @param rs the result set positioned on a row
-     * @return the mapped request
-     * @throws SQLException if a column cannot be read
-     */
     private BookRequest mapRow(ResultSet rs) throws SQLException {
         BookRequest r = new BookRequest();
         r.setRequestId(rs.getInt("request_id"));

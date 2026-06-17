@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -18,21 +19,10 @@ import org.thymeleaf.spring6.view.ThymeleafViewResolver;
 
 import java.util.Locale;
 
-/**
- * Web (MVC) context configuration. Sets up component scanning for controllers, the
- * Thymeleaf template engine and view resolver, static resource handling, and
- * internationalization (locale resolver + language switch interceptor).
- */
 @Configuration
 @EnableWebMvc
 @ComponentScan(basePackages = "com.library.controller")
 public class WebConfig implements WebMvcConfigurer {
-
-    /**
-     * Resolves Thymeleaf templates from /WEB-INF/views/ with an .html suffix.
-     *
-     * @return the template resolver
-     */
     @Bean
     public SpringResourceTemplateResolver templateResolver() {
         SpringResourceTemplateResolver resolver = new SpringResourceTemplateResolver();
@@ -43,11 +33,6 @@ public class WebConfig implements WebMvcConfigurer {
         return resolver;
     }
 
-    /**
-     * Builds the Thymeleaf template engine using the template resolver.
-     *
-     * @return the configured template engine
-     */
     @Bean
     public SpringTemplateEngine templateEngine() {
         SpringTemplateEngine engine = new SpringTemplateEngine();
@@ -59,8 +44,6 @@ public class WebConfig implements WebMvcConfigurer {
 
     /**
      * Connects Thymeleaf to Spring MVC as the view resolver.
-     *
-     * @return the Thymeleaf view resolver
      */
     @Bean
     public ThymeleafViewResolver viewResolver() {
@@ -71,9 +54,7 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     /**
-     * Loads localized message bundles (messages_en.properties, messages_ru.properties).
-     *
-     * @return the message source
+     * Loads messages_en.properties, messages_ru.properties
      */
     @Bean
     public MessageSource messageSource() {
@@ -86,21 +67,16 @@ public class WebConfig implements WebMvcConfigurer {
     /**
      * Uses the message source for Bean Validation messages, so validation texts can be
      * localized and referenced as {validation.*} keys.
-     *
-     * @return a validator backed by the message source
      */
     @Override
     public org.springframework.validation.Validator getValidator() {
-        org.springframework.validation.beanvalidation.LocalValidatorFactoryBean validator =
-                new org.springframework.validation.beanvalidation.LocalValidatorFactoryBean();
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.setValidationMessageSource(messageSource());
         return validator;
     }
 
     /**
      * Stores the chosen locale in the user session, defaulting to English.
-     *
-     * @return the locale resolver
      */
     @Bean
     public LocaleResolver localeResolver() {
@@ -111,8 +87,6 @@ public class WebConfig implements WebMvcConfigurer {
 
     /**
      * Allows switching language via a {@code ?lang=} request parameter.
-     *
-     * @return the locale change interceptor
      */
     @Bean
     public LocaleChangeInterceptor localeChangeInterceptor() {
@@ -124,9 +98,15 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(localeChangeInterceptor());
-        // Protect role-specific areas; public pages (login, register, books, root) are open.
+
         registry.addInterceptor(new com.library.interceptor.AuthInterceptor())
-                .addPathPatterns("/admin/**", "/librarian/**", "/requests/**", "/reader/**");
+                .addPathPatterns(
+                        "/admin/**",
+                        "/librarian/**",
+                        "/requests/**",
+                        "/reader/**",
+                        "/account/**"
+                );
     }
 
     @Override

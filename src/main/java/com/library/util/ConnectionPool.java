@@ -9,18 +9,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-/**
- * A custom, thread-safe JDBC connection pool implemented manually (no external
- * pooling library). Connections are created once at startup and reused.
- *
- * <p>Thread safety is provided by a {@link BlockingQueue}: {@link #getConnection()}
- * blocks until a connection becomes available, and returning a connection is an
- * atomic queue operation. The pool is a lazily-initialized singleton.</p>
- */
 public final class ConnectionPool {
-
     private static volatile ConnectionPool instance;
-
     private final BlockingQueue<Connection> availableConnections;
     private final List<Connection> allConnections;
 
@@ -52,12 +42,6 @@ public final class ConnectionPool {
         }
     }
 
-    /**
-     * Returns the singleton pool instance, creating it on first access.
-     * Uses double-checked locking for thread-safe lazy initialization.
-     *
-     * @return the connection pool instance
-     */
     public static ConnectionPool getInstance() {
         if (instance == null) {
             synchronized (ConnectionPool.class) {
@@ -69,13 +53,6 @@ public final class ConnectionPool {
         return instance;
     }
 
-    /**
-     * Borrows a connection from the pool, waiting if none is currently available.
-     * The returned connection is a proxy whose {@code close()} returns it to the pool.
-     *
-     * @return a usable JDBC connection
-     * @throws SQLException if interrupted while waiting for a connection
-     */
     public Connection getConnection() throws SQLException {
         try {
             Connection connection = availableConnections.poll(10, TimeUnit.SECONDS);
@@ -89,10 +66,6 @@ public final class ConnectionPool {
         }
     }
 
-    /**
-     * Closes all physical connections. Intended to be called once on application
-     * shutdown.
-     */
     public void shutdown() {
         for (Connection real : allConnections) {
             try {

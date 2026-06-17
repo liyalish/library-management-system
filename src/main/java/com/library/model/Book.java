@@ -1,16 +1,19 @@
 package com.library.model;
 
-/**
- * Represents a book title in the catalog. Mirrors the {@code books} table.
- * The {@code authorName} field is populated by joins for display purposes and is
- * not stored directly in the books table.
- */
-public class Book {
+import java.util.ArrayList;
+import java.util.List;
 
+public class Book {
     private int bookId;
     private String title;
-    private int authorId;
+
+    // For many-to-many authors
+    private List<Integer> authorIds = new ArrayList<>();
+    private String authorIdsText;
+
+    // Display value: "George Orwell, Jane Austen"
     private String authorName;
+
     private String description;
     private Integer publishYear;
 
@@ -33,12 +36,37 @@ public class Book {
         this.title = title;
     }
 
+    public List<Integer> getAuthorIds() {
+        return authorIds;
+    }
+
+    public void setAuthorIds(List<Integer> authorIds) {
+        this.authorIds = authorIds;
+        this.authorIdsText = authorIds == null ? "" : joinIds(authorIds);
+    }
+
+    public String getAuthorIdsText() {
+        if (authorIdsText != null) {
+            return authorIdsText;
+        }
+        return joinIds(authorIds);
+    }
+
+    public void setAuthorIdsText(String authorIdsText) {
+        this.authorIdsText = authorIdsText;
+        this.authorIds = parseIds(authorIdsText);
+    }
+
     public int getAuthorId() {
-        return authorId;
+        return authorIds == null || authorIds.isEmpty() ? 0 : authorIds.get(0);
     }
 
     public void setAuthorId(int authorId) {
-        this.authorId = authorId;
+        this.authorIds = new ArrayList<>();
+        if (authorId > 0) {
+            this.authorIds.add(authorId);
+        }
+        this.authorIdsText = joinIds(this.authorIds);
     }
 
     public String getAuthorName() {
@@ -63,5 +91,43 @@ public class Book {
 
     public void setPublishYear(Integer publishYear) {
         this.publishYear = publishYear;
+    }
+
+    private List<Integer> parseIds(String text) {
+        List<Integer> ids = new ArrayList<>();
+
+        if (text == null || text.isBlank()) {
+            return ids;
+        }
+
+        String[] parts = text.split(",");
+
+        for (String part : parts) {
+            String trimmed = part.trim();
+
+            if (!trimmed.isEmpty()) {
+                ids.add(Integer.parseInt(trimmed));
+            }
+        }
+
+        return ids;
+    }
+
+    private String joinIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < ids.size(); i++) {
+            if (i > 0) {
+                result.append(",");
+            }
+
+            result.append(ids.get(i));
+        }
+
+        return result.toString();
     }
 }

@@ -10,50 +10,33 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-/**
- * Reader-facing controller for the borrowing workflow: submitting book requests,
- * viewing one's own requests, and cancelling pending ones. All endpoints live under
- * /requests and are protected by the authorization interceptor (login required).
- */
 @Controller
 public class RequestController {
-
     private final RequestService requestService;
 
-    /**
-     * Creates the controller with the request service (constructor injection).
-     *
-     * @param requestService the request service
-     */
     public RequestController(RequestService requestService) {
         this.requestService = requestService;
     }
 
-    /**
-     * Submits a request for a book on behalf of the logged-in reader.
-     *
-     * @param bookId      the requested book id
-     * @param requestType "HOME" or "READING_ROOM"
-     * @param session     the HTTP session (provides the current user)
-     * @return a redirect to the reader's request list
-     */
     @PostMapping("/requests/create")
     public String create(@RequestParam int bookId,
                          @RequestParam String requestType,
-                         HttpSession session) {
+                         HttpSession session,
+                         RedirectAttributes ra) {
         User user = (User) session.getAttribute("currentUser");
-        requestService.submitRequest(user.getUserId(), bookId, requestType);
+
+        try {
+            requestService.submitRequest(user.getUserId(), bookId, requestType);
+            ra.addFlashAttribute("message", "Request submitted successfully");
+        } catch (ServiceException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+
         return "redirect:/requests";
     }
 
-    /**
-     * Shows the logged-in reader their own requests.
-     *
-     * @param session the HTTP session
-     * @param model   the view model
-     * @return the my-requests view name
-     */
     @GetMapping("/requests")
     public String myRequests(HttpSession session, Model model) {
         User user = (User) session.getAttribute("currentUser");
@@ -61,22 +44,35 @@ public class RequestController {
         return "my-requests";
     }
 
-    /**
-     * Cancels one of the reader's pending requests.
-     *
-     * @param id      the request id
-     * @param session the HTTP session
-     * @param model   the view model
-     * @return a redirect to the reader's request list
-     */
     @PostMapping("/requests/{id}/cancel")
-    public String cancel(@PathVariable int id, HttpSession session, Model model) {
+    public String cancel(@PathVariable int id,
+                         HttpSession session,
+                         RedirectAttributes ra) {
         User user = (User) session.getAttribute("currentUser");
+
         try {
             requestService.cancelRequest(id, user.getUserId());
+            ra.addFlashAttribute("message", "Request cancelled");
         } catch (ServiceException e) {
-            model.addAttribute("error", e.getMessage());
+            ra.addFlashAttribute("error", e.getMessage());
         }
+
+        return "redirect:/requests";
+    }
+
+    @PostMapping("/requests/{id}/return")
+    public String requestReturn(@PathVariable int id,
+                                HttpSession session,
+                                RedirectAttributes ra) {
+        User user = (User) session.getAttribute("currentUser");
+
+        try {
+            requestService.requestReturn(id, user.getUserId());
+            ra.addFlashAttribute("message", "Return request sent to librarian");
+        } catch (ServiceException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+
         return "redirect:/requests";
     }
 }

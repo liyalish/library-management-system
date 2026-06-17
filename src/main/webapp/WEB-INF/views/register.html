@@ -10,6 +10,7 @@
 <body class="bg-light">
 <nav class="navbar navbar-expand bg-white border-bottom px-4">
     <span class="navbar-brand" th:text="#{app.title}">Library</span>
+
     <div class="ms-auto">
         <a class="btn btn-sm btn-outline-secondary" href="?lang=en">EN</a>
         <a class="btn btn-sm btn-outline-secondary" href="?lang=ru">RU</a>
@@ -25,40 +26,78 @@
                 Error
             </div>
 
-            <form method="post" th:action="@{/register}" th:object="${registrationForm}">
+            <form method="post" th:action="@{/register}" th:object="${registrationForm}" autocomplete="off">
+                <!-- Fake fields to prevent browser autofill -->
+                <input type="text" name="fakeUsername" autocomplete="username"
+                       style="position:absolute; left:-9999px; opacity:0;">
+                <input type="password" name="fakePassword" autocomplete="current-password"
+                       style="position:absolute; left:-9999px; opacity:0;">
+
                 <div class="mb-3">
                     <label class="form-label" th:text="#{login.username}">Username</label>
-                    <input type="text" th:field="*{username}" class="form-control"
+                    <input type="text"
+                           th:field="*{username}"
+                           class="form-control"
+                           autocomplete="new-username"
                            th:classappend="${#fields.hasErrors('username')} ? 'is-invalid'"
-                           required minlength="3">
+                           required
+                           minlength="3">
+
                     <div class="invalid-feedback" th:if="${#fields.hasErrors('username')}"
-                         th:errors="*{username}">Username error</div>
+                         th:errors="*{username}">
+                        Username error
+                    </div>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label" th:text="#{register.fullname}">Full name</label>
-                    <input type="text" th:field="*{fullName}" class="form-control"
+                    <input type="text"
+                           th:field="*{fullName}"
+                           class="form-control"
+                           autocomplete="off"
                            th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'"
                            required>
+
                     <div class="invalid-feedback" th:if="${#fields.hasErrors('fullName')}"
-                         th:errors="*{fullName}">Full name error</div>
+                         th:errors="*{fullName}">
+                        Full name error
+                    </div>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label" th:text="#{register.email}">Email</label>
-                    <input type="email" th:field="*{email}" class="form-control"
+                    <input type="email"
+                           th:field="*{email}"
+                           class="form-control"
+                           autocomplete="new-email"
                            th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'"
                            required>
+
                     <div class="invalid-feedback" th:if="${#fields.hasErrors('email')}"
-                         th:errors="*{email}">Email error</div>
+                         th:errors="*{email}">
+                        Email error
+                    </div>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label" th:text="#{login.password}">Password</label>
-                    <input type="password" th:field="*{password}" class="form-control"
+                    <input type="password"
+                           th:field="*{password}"
+                           class="form-control"
+                           autocomplete="new-password"
                            th:classappend="${#fields.hasErrors('password')} ? 'is-invalid'"
-                           required minlength="4">
+                           required
+                           minlength="4">
+
                     <div class="invalid-feedback" th:if="${#fields.hasErrors('password')}"
-                         th:errors="*{password}">Password error</div>
+                         th:errors="*{password}">
+                        Password error
+                    </div>
                 </div>
-                <button type="submit" class="btn btn-primary w-100" th:text="#{register.submit}">Create account</button>
+
+                <button type="submit" class="btn btn-primary w-100" th:text="#{register.submit}">
+                    Create account
+                </button>
             </form>
 
             <div class="text-center mt-3">

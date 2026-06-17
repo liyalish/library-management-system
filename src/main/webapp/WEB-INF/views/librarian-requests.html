@@ -10,6 +10,7 @@
 <body>
 <nav class="navbar navbar-expand bg-white border-bottom px-4">
     <a class="navbar-brand" th:href="@{/books}" th:text="#{app.title}">Library</a>
+
     <div class="ms-auto d-flex align-items-center gap-2">
         <a class="btn btn-sm btn-outline-secondary" th:href="@{/books}">Catalog</a>
         <a class="btn btn-sm btn-outline-danger" th:href="@{/logout}" th:text="#{nav.logout}">Log out</a>
@@ -30,41 +31,76 @@
             <th>Book</th>
             <th>Type</th>
             <th>Status</th>
-            <th>Return date</th>
+            <th>Return deadline</th>
             <th>Actions</th>
         </tr>
         </thead>
+
         <tbody>
         <tr th:if="${requests.isEmpty()}">
             <td colspan="7" class="text-center text-muted">No requests</td>
         </tr>
+
         <tr th:each="r : ${requests}">
             <td th:text="${r.requestId}">1</td>
             <td th:text="${r.readerName}">Reader</td>
             <td th:text="${r.bookTitle}">Book</td>
             <td th:text="${r.requestType}">HOME</td>
+
             <td>
-                <span class="badge"
-                      th:classappend="${r.status == 'PENDING'} ? 'bg-warning text-dark'
-                                    : (${r.status == 'ISSUED'} ? 'bg-primary'
-                                    : (${r.status == 'RETURNED'} ? 'bg-success' : 'bg-secondary'))"
-                      th:text="${r.status}">PENDING</span>
+                <span th:if="${r.overdue}" class="badge bg-danger">OVERDUE</span>
+
+                <span th:if="${!r.overdue and r.status == 'PENDING'}"
+                      class="badge bg-warning text-dark">PENDING</span>
+
+                <span th:if="${!r.overdue and r.status == 'ISSUED'}"
+                      class="badge bg-primary">ISSUED</span>
+
+                <span th:if="${!r.overdue and r.status == 'PENDING_RETURN'}"
+                      class="badge bg-info text-dark">PENDING_RETURN</span>
+
+                <span th:if="${!r.overdue and r.status == 'RETURNED'}"
+                      class="badge bg-success">RETURNED</span>
+
+                <span th:if="${!r.overdue and r.status == 'CANCELLED'}"
+                      class="badge bg-secondary">CANCELLED</span>
             </td>
-            <td th:text="${r.returnDate}">-</td>
+
+            <td th:text="${r.returnDate != null ? r.returnDate : '-'}">-</td>
+
             <td>
-                <!-- Issue: only for pending requests -->
-                <form th:if="${r.status == 'PENDING'}" method="post"
+                <form th:if="${session.currentUser != null
+                              and session.currentUser.role.name() == 'LIBRARIAN'
+                              and r.status == 'PENDING'}"
+                      method="post"
                       th:action="@{'/librarian/requests/' + ${r.requestId} + '/issue'}"
                       class="d-flex gap-1">
                     <input type="date" name="returnDate" class="form-control form-control-sm"
                            style="width:auto;" required>
                     <button class="btn btn-sm btn-primary" type="submit">Issue</button>
                 </form>
-                <!-- Return: only for issued requests -->
-                <form th:if="${r.status == 'ISSUED'}" method="post"
-                      th:action="@{'/librarian/requests/' + ${r.requestId} + '/return'}">
-                    <button class="btn btn-sm btn-success" type="submit">Mark returned</button>
+
+                <form th:if="${session.currentUser != null
+                              and session.currentUser.role.name() == 'LIBRARIAN'
+                              and r.status == 'PENDING_RETURN'}"
+                      method="post"
+                      th:action="@{'/librarian/requests/' + ${r.requestId} + '/return'}"
+                      onsubmit="return confirm('Approve return?');">
+                    <button class="btn btn-sm btn-success" type="submit">Approve return</button>
                 </form>
+
+                <span th:if="${session.currentUser != null
+                              and session.currentUser.role.name() == 'LIBRARIAN'
+                              and r.status == 'ISSUED'}"
+                      class="text-muted small">
+                    Waiting reader return
+                </span>
+
+                <span th:if="${session.currentUser != null
+                              and session.currentUser.role.name() == 'ADMIN'}"
+                      class="text-muted small">
+                    View only
+                </span>
             </td>
         </tr>
         </tbody>

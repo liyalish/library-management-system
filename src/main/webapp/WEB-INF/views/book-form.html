@@ -12,7 +12,7 @@
     <a class="navbar-brand" th:href="@{/books}" th:text="#{app.title}">Library</a>
 </nav>
 
-<div class="container" style="max-width: 500px; margin-top: 40px;">
+<div class="container" style="max-width: 560px; margin-top: 40px;">
     <div class="card shadow-sm">
         <div class="card-body">
             <h4 class="card-title mb-4" th:text="#{book.form.title}">Book details</h4>
@@ -21,23 +21,30 @@
                 <input type="hidden" name="bookId" th:value="${book.bookId}">
 
                 <div class="mb-3">
-                    <label class="form-label" th:text="#{book.form.title}">Title</label>
+                    <label class="form-label">Title</label>
                     <input type="text" name="title" class="form-control"
                            th:value="${book.title}" required>
                 </div>
+
                 <div class="mb-3">
-                    <label class="form-label" th:text="#{books.author}">Author</label>
-                    <input type="number" name="authorId" class="form-control"
-                           th:value="${book.authorId}" placeholder="Author id" required>
+                    <label class="form-label">Author IDs</label>
+                    <input type="text" name="authorIdsText" class="form-control"
+                           th:value="${book.authorIdsText}"
+                           placeholder="Example: 1 or 1,2" required>
+                    <div class="form-text">
+                        For several authors, write IDs separated by commas.
+                    </div>
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label" th:text="#{books.year}">Year</label>
                     <input type="number" name="publishYear" class="form-control"
                            th:value="${book.publishYear}">
                 </div>
+
                 <div class="mb-3">
                     <label class="form-label">Description</label>
-                    <textarea name="description" class="form-control" rows="3"
+                    <textarea name="description" class="form-control" rows="4"
                               th:text="${book.description}"></textarea>
                 </div>
 

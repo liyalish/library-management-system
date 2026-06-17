@@ -1,6 +1,3 @@
--- Library Management System — database schema (PostgreSQL)
--- Normalized to 3NF. Run this first, then data.sql.
-
 DROP TABLE IF EXISTS book_requests CASCADE;
 DROP TABLE IF EXISTS book_copies CASCADE;
 DROP TABLE IF EXISTS book_genres CASCADE;

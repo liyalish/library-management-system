@@ -5,11 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/**
- * Form-backing object for user registration. Carries Bean Validation constraints that
- * are checked on the server side before a user is created. Keeping validation on a
- * dedicated form object (rather than the User entity) keeps the domain model clean.
- */
 public class RegistrationForm {
 
     @NotBlank(message = "{validation.username.required}")

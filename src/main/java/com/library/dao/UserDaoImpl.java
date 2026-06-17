@@ -4,6 +4,7 @@ import com.library.exception.DaoException;
 import com.library.model.Role;
 import com.library.model.User;
 import com.library.util.ConnectionPool;
+import org.springframework.stereotype.Repository;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,19 +15,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * JDBC implementation of {@link UserDao}. All queries use {@link PreparedStatement}
- * to prevent SQL injection. Connections are obtained from the custom pool and returned
- * automatically via try-with-resources.
- */
+@Repository
 public class UserDaoImpl implements UserDao {
-
     private final ConnectionPool pool = ConnectionPool.getInstance();
 
     @Override
     public User create(User user) {
-        String sql = "INSERT INTO users (username, password_hash, full_name, email, role) "
-                + "VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (username, password_hash, full_name, email, role) " + "VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, user.getUsername());
@@ -131,13 +126,27 @@ public class UserDaoImpl implements UserDao {
         }
     }
 
-    /**
-     * Maps the current row of a ResultSet to a {@link User} object.
-     *
-     * @param rs the result set positioned on a row
-     * @return the mapped user
-     * @throws SQLException if a column cannot be read
-     */
+    @Override
+    public int countActiveRequests(int userId) {
+        String sql = """
+            SELECT COUNT(*)
+            FROM book_requests
+            WHERE reader_id = ?
+              AND status IN ('PENDING', 'ISSUED', 'PENDING_RETURN')
+            """;
+
+        try (Connection conn = pool.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? rs.getInt(1) : 0;
+            }
+        } catch (SQLException e) {
+            throw new DaoException("Failed to count active requests for user: " + userId, e);
+        }
+    }
+
     private User mapRow(ResultSet rs) throws SQLException {
         User user = new User();
         user.setUserId(rs.getInt("user_id"));

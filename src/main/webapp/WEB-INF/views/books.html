@@ -10,19 +10,29 @@
 <body>
 <nav class="navbar navbar-expand bg-white border-bottom px-4">
     <a class="navbar-brand" th:href="@{/books}" th:text="#{app.title}">Library</a>
+
     <div class="ms-auto d-flex align-items-center gap-2">
         <a class="btn btn-sm btn-outline-secondary" href="?lang=en">EN</a>
         <a class="btn btn-sm btn-outline-secondary" href="?lang=ru">RU</a>
+
         <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'READER'}"
            class="btn btn-sm btn-outline-primary" th:href="@{/requests}">My requests</a>
-        <a th:if="${session.currentUser != null and (session.currentUser.role.name() == 'LIBRARIAN' or session.currentUser.role.name() == 'ADMIN')}"
+
+        <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'LIBRARIAN'}"
            class="btn btn-sm btn-outline-primary" th:href="@{/librarian/requests}">Requests</a>
+
+        <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}"
+           class="btn btn-sm btn-outline-primary" th:href="@{/admin/requests}">Requests</a>
+
         <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}"
            class="btn btn-sm btn-outline-primary" th:href="@{/admin/users}">Users</a>
+
         <span th:if="${session.currentUser != null}"
               th:text="${session.currentUser.fullName}" class="text-muted small"></span>
+
         <a th:if="${session.currentUser != null}" class="btn btn-sm btn-outline-danger"
            th:href="@{/logout}" th:text="#{nav.logout}">Log out</a>
+
         <a th:if="${session.currentUser == null}" class="btn btn-sm btn-primary"
            th:href="@{/login}" th:text="#{nav.login}">Log in</a>
     </div>
@@ -31,11 +41,12 @@
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 th:text="#{books.title}">Book catalog</h3>
-        <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}"
+
+        <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'LIBRARIAN'}"
            class="btn btn-success" th:href="@{/books/new}" th:text="#{books.add}">Add book</a>
     </div>
 
-    <form method="get" th:action="@{/books}" class="mb-3">
+    <form method="get" th:action="@{/books}" class="mb-4">
         <div class="input-group" style="max-width: 400px;">
             <input type="text" name="search" class="form-control"
                    th:value="${search}" th:placeholder="#{books.search}">
@@ -43,55 +54,68 @@
         </div>
     </form>
 
-    <table class="table table-hover bg-white">
-        <thead class="table-light">
-        <tr>
-            <th>#</th>
-            <th th:text="#{book.form.title}">Title</th>
-            <th th:text="#{books.author}">Author</th>
-            <th th:text="#{books.year}">Year</th>
-            <th th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}"
-                th:text="#{books.actions}">Actions</th>
-            <th th:if="${session.currentUser != null and session.currentUser.role.name() == 'READER'}">Request</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr th:if="${books.isEmpty()}">
-            <td colspan="6" class="text-center text-muted" th:text="#{books.empty}">No books found</td>
-        </tr>
-        <tr th:each="b : ${books}">
-            <td th:text="${b.bookId}">1</td>
-            <td th:text="${b.title}">Title</td>
-            <td th:text="${b.authorName}">Author</td>
-            <td th:text="${b.publishYear}">Year</td>
-            <td th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}">
-                <a class="btn btn-sm btn-outline-primary"
-                   th:href="@{'/books/' + ${b.bookId} + '/edit'}" th:text="#{books.edit}">Edit</a>
-                <form method="post" th:action="@{'/books/' + ${b.bookId} + '/delete'}"
-                      class="d-inline" onsubmit="return confirm('Delete this book?');">
-                    <button class="btn btn-sm btn-outline-danger" type="submit" th:text="#{books.delete}">Delete</button>
-                </form>
-            </td>
-            <td th:if="${session.currentUser != null and session.currentUser.role.name() == 'READER'}">
-                <form method="post" th:action="@{/requests/create}" class="d-flex gap-1">
-                    <input type="hidden" name="bookId" th:value="${b.bookId}">
-                    <select name="requestType" class="form-select form-select-sm" style="width:auto;">
-                        <option value="HOME">Home</option>
-                        <option value="READING_ROOM">Reading room</option>
-                    </select>
-                    <button class="btn btn-sm btn-success" type="submit">Request</button>
-                </form>
-            </td>
-        </tr>
-        </tbody>
-    </table>
+    <div th:if="${books.isEmpty()}" class="alert alert-light border text-center text-muted"
+         th:text="#{books.empty}">
+        No books found
+    </div>
 
-    <nav th:if="${totalPages > 1}">
+    <div class="row g-3">
+        <div class="col-md-6 col-lg-4" th:each="b : ${books}">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title" th:text="${b.title}">Book title</h5>
+
+                    <p class="text-muted mb-1">
+                        <span th:text="${b.authorName}">Author</span>
+                        <span th:if="${b.publishYear != null}">
+                            · <span th:text="${b.publishYear}">Year</span>
+                        </span>
+                    </p>
+
+                    <p class="card-text mt-2" th:text="${b.description}">
+                        Book description
+                    </p>
+
+                    <div class="mt-auto">
+                        <form th:if="${session.currentUser != null and session.currentUser.role.name() == 'READER'}"
+                              method="post" th:action="@{/requests/create}">
+                            <input type="hidden" name="bookId" th:value="${b.bookId}">
+
+                            <div class="d-flex gap-2">
+                                <select name="requestType" class="form-select form-select-sm">
+                                    <option value="HOME">Home</option>
+                                    <option value="READING_ROOM">Reading room</option>
+                                </select>
+
+                                <button class="btn btn-sm btn-success" type="submit">Request</button>
+                            </div>
+                        </form>
+
+                        <div th:if="${session.currentUser != null and session.currentUser.role.name() == 'LIBRARIAN'}"
+                             class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-primary"
+                               th:href="@{'/books/' + ${b.bookId} + '/edit'}"
+                               th:text="#{books.edit}">Edit</a>
+
+                            <form method="post" th:action="@{'/books/' + ${b.bookId} + '/delete'}"
+                                  onsubmit="return confirm('Delete this book?');">
+                                <button class="btn btn-sm btn-outline-danger" type="submit"
+                                        th:text="#{books.delete}">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <nav th:if="${totalPages > 1}" class="mt-4">
         <ul class="pagination">
             <li class="page-item" th:each="i : ${#numbers.sequence(1, totalPages)}"
                 th:classappend="${i == currentPage} ? 'active'">
                 <a class="page-link"
-                   th:href="@{/books(page=${i}, search=${search})}" th:text="${i}">1</a>
+                   th:href="@{/books(page=${i}, search=${search})}"
+                   th:text="${i}">1</a>
             </li>
         </ul>
     </nav>

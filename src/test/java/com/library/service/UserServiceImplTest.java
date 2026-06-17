@@ -51,7 +51,7 @@ class UserServiceImplTest {
         existingUser.setBlocked(false);
     }
 
-    // ---------- register ----------
+    // register
 
     @Test
     void register_withNewUsername_createsUser() {
@@ -78,7 +78,7 @@ class UserServiceImplTest {
         verify(userDao, never()).create(any(User.class));
     }
 
-    // ---------- authenticate ----------
+    // authenticate
 
     @Test
     void authenticate_withCorrectPassword_returnsUser() {
@@ -114,7 +114,7 @@ class UserServiceImplTest {
                 () -> userService.authenticate("alice", "secret123"));
     }
 
-    // ---------- setBlocked ----------
+    // setBlocked
 
     @Test
     void setBlocked_existingUser_updatesUser() {
@@ -134,7 +134,7 @@ class UserServiceImplTest {
         verify(userDao, never()).update(any(User.class));
     }
 
-    // ---------- pagination passthrough ----------
+    // pagination passthrough
 
     @Test
     void getUsers_computesOffsetFromPage() {
