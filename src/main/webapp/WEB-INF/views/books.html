@@ -12,20 +12,28 @@
     <a class="navbar-brand" th:href="@{/books}" th:text="#{app.title}">Library</a>
 
     <div class="ms-auto d-flex align-items-center gap-2">
-        <a class="btn btn-sm btn-outline-secondary" href="?lang=en">EN</a>
-        <a class="btn btn-sm btn-outline-secondary" href="?lang=ru">RU</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?lang=en" th:text="#{nav.language.en}">EN</a>
+        <a class="btn btn-sm btn-outline-secondary" href="?lang=ru" th:text="#{nav.language.ru}">RU</a>
 
         <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'READER'}"
-           class="btn btn-sm btn-outline-primary" th:href="@{/requests}">My requests</a>
+           class="btn btn-sm btn-outline-primary"
+           th:href="@{/requests}"
+           th:text="#{requests.my}">My requests</a>
 
         <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'LIBRARIAN'}"
-           class="btn btn-sm btn-outline-primary" th:href="@{/librarian/requests}">Requests</a>
+           class="btn btn-sm btn-outline-primary"
+           th:href="@{/librarian/requests}"
+           th:text="#{nav.requests}">Requests</a>
 
         <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}"
-           class="btn btn-sm btn-outline-primary" th:href="@{/admin/requests}">Requests</a>
+           class="btn btn-sm btn-outline-primary"
+           th:href="@{/admin/requests}"
+           th:text="#{nav.requests}">Requests</a>
 
         <a th:if="${session.currentUser != null and session.currentUser.role.name() == 'ADMIN'}"
-           class="btn btn-sm btn-outline-primary" th:href="@{/admin/users}">Users</a>
+           class="btn btn-sm btn-outline-primary"
+           th:href="@{/admin/users}"
+           th:text="#{nav.users}">Users</a>
 
         <span th:if="${session.currentUser != null}"
               th:text="${session.currentUser.fullName}" class="text-muted small"></span>
@@ -46,11 +54,44 @@
            class="btn btn-success" th:href="@{/books/new}" th:text="#{books.add}">Add book</a>
     </div>
 
-    <form method="get" th:action="@{/books}" class="mb-4">
-        <div class="input-group" style="max-width: 400px;">
-            <input type="text" name="search" class="form-control"
-                   th:value="${search}" th:placeholder="#{books.search}">
-            <button class="btn btn-outline-secondary" type="submit">🔍</button>
+    <form method="get" th:action="@{/books}" class="card card-body mb-4">
+        <div class="row g-2">
+            <div class="col-md-4">
+                <input type="text" name="search" class="form-control"
+                       th:value="${search}" th:placeholder="#{books.search}">
+            </div>
+
+            <div class="col-md-3">
+                <select name="authorId" class="form-select">
+                    <option value="" th:text="#{books.authors.all}">All authors</option>
+                    <option th:each="a : ${authors}"
+                            th:value="${a.authorId}"
+                            th:text="${a.fullName}"
+                            th:selected="${selectedAuthorId != null and selectedAuthorId == a.authorId}">
+                        Author
+                    </option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <select name="genreId" class="form-select">
+                    <option value="" th:text="#{books.genres.all}">All genres</option>
+                    <option th:each="g : ${genres}"
+                            th:value="${g.genreId}"
+                            th:text="${g.name}"
+                            th:selected="${selectedGenreId != null and selectedGenreId == g.genreId}">
+                        Genre
+                    </option>
+                </select>
+            </div>
+
+            <div class="col-md-2 d-grid">
+                <button class="btn btn-primary" type="submit" th:text="#{books.filter}">Filter</button>
+            </div>
+        </div>
+
+        <div class="mt-2">
+            <a th:href="@{/books}" class="small text-muted" th:text="#{books.reset}">Reset filters</a>
         </div>
     </form>
 
@@ -72,9 +113,26 @@
                         </span>
                     </p>
 
+                    <p class="small text-muted mb-2" th:if="${b.genreNames != null and !b.genreNames.isBlank()}">
+                        <span th:text="#{books.genres}">Genres</span>:
+                        <span th:text="${b.genreNames}">Genres</span>
+                    </p>
+
                     <p class="card-text mt-2" th:text="${b.description}">
                         Book description
                     </p>
+
+                    <div class="mb-3">
+                        <span th:if="${b.availableCopies > 0}" class="badge bg-success">
+                            <span th:text="#{books.available}">Available</span>:
+                            <span th:text="${b.availableCopies}">5</span>
+                        </span>
+
+                        <span th:if="${b.availableCopies == 0}" class="badge bg-danger"
+                              th:text="#{books.noCopies}">
+                            No copies available
+                        </span>
+                    </div>
 
                     <div class="mt-auto">
                         <form th:if="${session.currentUser != null and session.currentUser.role.name() == 'READER'}"
@@ -82,12 +140,17 @@
                             <input type="hidden" name="bookId" th:value="${b.bookId}">
 
                             <div class="d-flex gap-2">
-                                <select name="requestType" class="form-select form-select-sm">
-                                    <option value="HOME">Home</option>
-                                    <option value="READING_ROOM">Reading room</option>
+                                <select name="requestType" class="form-select form-select-sm"
+                                        th:disabled="${b.availableCopies == 0}">
+                                    <option value="HOME" th:text="#{books.requestType.home}">Home</option>
+                                    <option value="READING_ROOM" th:text="#{books.requestType.readingRoom}">Reading room</option>
                                 </select>
 
-                                <button class="btn btn-sm btn-success" type="submit">Request</button>
+                                <button class="btn btn-sm btn-success" type="submit"
+                                        th:disabled="${b.availableCopies == 0}"
+                                        th:text="#{books.request}">
+                                    Request
+                                </button>
                             </div>
                         </form>
 
@@ -111,10 +174,11 @@
 
     <nav th:if="${totalPages > 1}" class="mt-4">
         <ul class="pagination">
-            <li class="page-item" th:each="i : ${#numbers.sequence(1, totalPages)}"
+            <li class="page-item"
+                th:each="i : ${#numbers.sequence(1, totalPages)}"
                 th:classappend="${i == currentPage} ? 'active'">
                 <a class="page-link"
-                   th:href="@{/books(page=${i}, search=${search})}"
+                   th:href="@{/books(page=${i}, search=${search}, authorId=${selectedAuthorId}, genreId=${selectedGenreId})}"
                    th:text="${i}">1</a>
             </li>
         </ul>

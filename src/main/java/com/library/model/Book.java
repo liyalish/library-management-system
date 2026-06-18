@@ -7,15 +7,16 @@ public class Book {
     private int bookId;
     private String title;
 
-    // For many-to-many authors
     private List<Integer> authorIds = new ArrayList<>();
     private String authorIdsText;
 
-    // Display value: "George Orwell, Jane Austen"
     private String authorName;
+    private String genreNames;
 
     private String description;
     private Integer publishYear;
+
+    private int availableCopies;
 
     public Book() {
     }
@@ -77,6 +78,14 @@ public class Book {
         this.authorName = authorName;
     }
 
+    public String getGenreNames() {
+        return genreNames;
+    }
+
+    public void setGenreNames(String genreNames) {
+        this.genreNames = genreNames;
+    }
+
     public String getDescription() {
         return description;
     }
@@ -91,6 +100,14 @@ public class Book {
 
     public void setPublishYear(Integer publishYear) {
         this.publishYear = publishYear;
+    }
+
+    public int getAvailableCopies() {
+        return availableCopies;
+    }
+
+    public void setAvailableCopies(int availableCopies) {
+        this.availableCopies = availableCopies;
     }
 
     private List<Integer> parseIds(String text) {

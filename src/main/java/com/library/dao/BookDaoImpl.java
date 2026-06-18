@@ -1,7 +1,9 @@
 package com.library.dao;
 
 import com.library.exception.DaoException;
+import com.library.model.Author;
 import com.library.model.Book;
+import com.library.model.Genre;
 import com.library.util.ConnectionPool;
 import org.springframework.stereotype.Repository;
 
@@ -23,11 +25,35 @@ public class BookDaoImpl implements BookDao {
                    b.title,
                    b.description,
                    b.publish_year,
-                   COALESCE(string_agg(DISTINCT a.full_name, ', '), '') AS author_name,
-                   COALESCE(string_agg(DISTINCT ba.author_id::text, ','), '') AS author_ids
+
+                   COALESCE((
+                       SELECT string_agg(a.full_name, ', ' ORDER BY a.full_name)
+                       FROM book_authors ba
+                       JOIN authors a ON ba.author_id = a.author_id
+                       WHERE ba.book_id = b.book_id
+                   ), '') AS author_name,
+
+                   COALESCE((
+                       SELECT string_agg(ba.author_id::text, ',' ORDER BY ba.author_id)
+                       FROM book_authors ba
+                       WHERE ba.book_id = b.book_id
+                   ), '') AS author_ids,
+
+                   COALESCE((
+                       SELECT string_agg(g.name, ', ' ORDER BY g.name)
+                       FROM book_genres bg
+                       JOIN genres g ON bg.genre_id = g.genre_id
+                       WHERE bg.book_id = b.book_id
+                   ), '') AS genre_names,
+
+                   (
+                       SELECT COUNT(*)
+                       FROM book_copies bc
+                       WHERE bc.book_id = b.book_id
+                         AND bc.status = 'AVAILABLE'
+                   ) AS available_copies
+
             FROM books b
-            LEFT JOIN book_authors ba ON b.book_id = ba.book_id
-            LEFT JOIN authors a ON ba.author_id = a.author_id
             """;
 
     @Override
@@ -45,7 +71,6 @@ public class BookDaoImpl implements BookDao {
                     ps.setString(1, book.getTitle());
                     ps.setString(2, book.getDescription());
                     setNullableInt(ps, 3, book.getPublishYear());
-
                     ps.executeUpdate();
 
                     try (ResultSet keys = ps.getGeneratedKeys()) {
@@ -63,7 +88,6 @@ public class BookDaoImpl implements BookDao {
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
-
             } finally {
                 conn.setAutoCommit(true);
             }
@@ -75,10 +99,7 @@ public class BookDaoImpl implements BookDao {
 
     @Override
     public Optional<Book> findById(int bookId) {
-        String sql = SELECT_BASE + """
-                WHERE b.book_id = ?
-                GROUP BY b.book_id, b.title, b.description, b.publish_year
-                """;
+        String sql = SELECT_BASE + " WHERE b.book_id = ?";
 
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -95,30 +116,51 @@ public class BookDaoImpl implements BookDao {
     }
 
     @Override
-    public List<Book> findAll(String search, int limit, int offset) {
-        boolean hasSearch = search != null && !search.isBlank();
+    public List<Book> findAll(String search, Integer authorId, Integer genreId, int limit, int offset) {
+        StringBuilder sql = new StringBuilder(SELECT_BASE);
+        List<Object> params = new ArrayList<>();
 
-        String sql = SELECT_BASE
-                + (hasSearch ? "WHERE LOWER(b.title) LIKE ? " : "")
-                + """
-                  GROUP BY b.book_id, b.title, b.description, b.publish_year
-                  ORDER BY b.title
-                  LIMIT ? OFFSET ?
-                  """;
+        sql.append(" WHERE 1 = 1 ");
+
+        if (search != null && !search.isBlank()) {
+            sql.append(" AND LOWER(b.title) LIKE ? ");
+            params.add("%" + search.toLowerCase() + "%");
+        }
+
+        if (authorId != null && authorId > 0) {
+            sql.append("""
+                    AND EXISTS (
+                        SELECT 1
+                        FROM book_authors ba_filter
+                        WHERE ba_filter.book_id = b.book_id
+                          AND ba_filter.author_id = ?
+                    )
+                    """);
+            params.add(authorId);
+        }
+
+        if (genreId != null && genreId > 0) {
+            sql.append("""
+                    AND EXISTS (
+                        SELECT 1
+                        FROM book_genres bg_filter
+                        WHERE bg_filter.book_id = b.book_id
+                          AND bg_filter.genre_id = ?
+                    )
+                    """);
+            params.add(genreId);
+        }
+
+        sql.append(" ORDER BY b.title LIMIT ? OFFSET ? ");
+        params.add(limit);
+        params.add(offset);
 
         List<Book> books = new ArrayList<>();
 
         try (Connection conn = pool.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
 
-            int index = 1;
-
-            if (hasSearch) {
-                ps.setString(index++, "%" + search.toLowerCase() + "%");
-            }
-
-            ps.setInt(index++, limit);
-            ps.setInt(index, offset);
+            setParams(ps, params);
 
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -134,18 +176,43 @@ public class BookDaoImpl implements BookDao {
     }
 
     @Override
-    public int count(String search) {
-        boolean hasSearch = search != null && !search.isBlank();
+    public int count(String search, Integer authorId, Integer genreId) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM books b WHERE 1 = 1 ");
+        List<Object> params = new ArrayList<>();
 
-        String sql = "SELECT COUNT(*) FROM books b"
-                + (hasSearch ? " WHERE LOWER(b.title) LIKE ?" : "");
+        if (search != null && !search.isBlank()) {
+            sql.append(" AND LOWER(b.title) LIKE ? ");
+            params.add("%" + search.toLowerCase() + "%");
+        }
+
+        if (authorId != null && authorId > 0) {
+            sql.append("""
+                    AND EXISTS (
+                        SELECT 1
+                        FROM book_authors ba_filter
+                        WHERE ba_filter.book_id = b.book_id
+                          AND ba_filter.author_id = ?
+                    )
+                    """);
+            params.add(authorId);
+        }
+
+        if (genreId != null && genreId > 0) {
+            sql.append("""
+                    AND EXISTS (
+                        SELECT 1
+                        FROM book_genres bg_filter
+                        WHERE bg_filter.book_id = b.book_id
+                          AND bg_filter.genre_id = ?
+                    )
+                    """);
+            params.add(genreId);
+        }
 
         try (Connection conn = pool.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
 
-            if (hasSearch) {
-                ps.setString(1, "%" + search.toLowerCase() + "%");
-            }
+            setParams(ps, params);
 
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next() ? rs.getInt(1) : 0;
@@ -153,6 +220,52 @@ public class BookDaoImpl implements BookDao {
 
         } catch (SQLException e) {
             throw new DaoException("Failed to count books", e);
+        }
+    }
+
+    @Override
+    public List<Author> findAllAuthors() {
+        String sql = "SELECT author_id, full_name FROM authors ORDER BY full_name";
+        List<Author> authors = new ArrayList<>();
+
+        try (Connection conn = pool.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                authors.add(new Author(
+                        rs.getInt("author_id"),
+                        rs.getString("full_name")
+                ));
+            }
+
+            return authors;
+
+        } catch (SQLException e) {
+            throw new DaoException("Failed to list authors", e);
+        }
+    }
+
+    @Override
+    public List<Genre> findAllGenres() {
+        String sql = "SELECT genre_id, name FROM genres ORDER BY name";
+        List<Genre> genres = new ArrayList<>();
+
+        try (Connection conn = pool.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                genres.add(new Genre(
+                        rs.getInt("genre_id"),
+                        rs.getString("name")
+                ));
+            }
+
+            return genres;
+
+        } catch (SQLException e) {
+            throw new DaoException("Failed to list genres", e);
         }
     }
 
@@ -184,7 +297,6 @@ public class BookDaoImpl implements BookDao {
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
-
             } finally {
                 conn.setAutoCommit(true);
             }
@@ -236,6 +348,18 @@ public class BookDaoImpl implements BookDao {
         }
     }
 
+    private void setParams(PreparedStatement ps, List<Object> params) throws SQLException {
+        for (int i = 0; i < params.size(); i++) {
+            Object value = params.get(i);
+
+            if (value instanceof Integer) {
+                ps.setInt(i + 1, (Integer) value);
+            } else {
+                ps.setString(i + 1, value.toString());
+            }
+        }
+    }
+
     private void setNullableInt(PreparedStatement ps, int index, Integer value) throws SQLException {
         if (value == null) {
             ps.setNull(index, java.sql.Types.INTEGER);
@@ -251,10 +375,13 @@ public class BookDaoImpl implements BookDao {
         book.setTitle(rs.getString("title"));
         book.setAuthorName(rs.getString("author_name"));
         book.setAuthorIdsText(rs.getString("author_ids"));
+        book.setGenreNames(rs.getString("genre_names"));
         book.setDescription(rs.getString("description"));
 
         int year = rs.getInt("publish_year");
         book.setPublishYear(rs.wasNull() ? null : year);
+
+        book.setAvailableCopies(rs.getInt("available_copies"));
 
         return book;
     }

@@ -2,7 +2,9 @@ package com.library.service;
 
 import com.library.dao.BookDao;
 import com.library.exception.ServiceException;
+import com.library.model.Author;
 import com.library.model.Book;
+import com.library.model.Genre;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,7 @@ import java.util.List;
 @Service
 public class BookServiceImpl implements BookService {
     private static final Logger LOGGER = LoggerFactory.getLogger(BookServiceImpl.class);
+
     private final BookDao bookDao;
 
     public BookServiceImpl(BookDao bookDao) {
@@ -32,14 +35,24 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    public List<Book> getBooks(String search, int page, int pageSize) {
+    public List<Book> getBooks(String search, Integer authorId, Integer genreId, int page, int pageSize) {
         int offset = (page - 1) * pageSize;
-        return bookDao.findAll(search, pageSize, offset);
+        return bookDao.findAll(search, authorId, genreId, pageSize, offset);
     }
 
     @Override
-    public int getBookCount(String search) {
-        return bookDao.count(search);
+    public int getBookCount(String search, Integer authorId, Integer genreId) {
+        return bookDao.count(search, authorId, genreId);
+    }
+
+    @Override
+    public List<Author> getAuthors() {
+        return bookDao.findAllAuthors();
+    }
+
+    @Override
+    public List<Genre> getGenres() {
+        return bookDao.findAllGenres();
     }
 
     @Override

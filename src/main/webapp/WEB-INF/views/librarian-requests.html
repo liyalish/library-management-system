@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All requests</title>
+    <title th:text="#{requests.title}">All requests</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link th:href="@{/css/theme.css}" rel="stylesheet">
 </head>
@@ -12,13 +12,13 @@
     <a class="navbar-brand" th:href="@{/books}" th:text="#{app.title}">Library</a>
 
     <div class="ms-auto d-flex align-items-center gap-2">
-        <a class="btn btn-sm btn-outline-secondary" th:href="@{/books}">Catalog</a>
+        <a class="btn btn-sm btn-outline-secondary" th:href="@{/books}" th:text="#{nav.catalog}">Catalog</a>
         <a class="btn btn-sm btn-outline-danger" th:href="@{/logout}" th:text="#{nav.logout}">Log out</a>
     </div>
 </nav>
 
 <div class="container mt-4">
-    <h3 class="mb-3">Book requests</h3>
+    <h3 class="mb-3" th:text="#{requests.title}">Book requests</h3>
 
     <div class="alert alert-success" th:if="${message}" th:text="${message}"></div>
     <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
@@ -27,43 +27,59 @@
         <thead class="table-light">
         <tr>
             <th>#</th>
-            <th>Reader</th>
-            <th>Book</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th>Return deadline</th>
-            <th>Actions</th>
+            <th th:text="#{requests.reader}">Reader</th>
+            <th th:text="#{requests.book}">Book</th>
+            <th th:text="#{requests.type}">Type</th>
+            <th th:text="#{requests.status}">Status</th>
+            <th th:text="#{requests.returnDeadline}">Return deadline</th>
+            <th th:text="#{requests.actions}">Actions</th>
         </tr>
         </thead>
 
         <tbody>
         <tr th:if="${requests.isEmpty()}">
-            <td colspan="7" class="text-center text-muted">No requests</td>
+            <td colspan="7" class="text-center text-muted" th:text="#{requests.empty}">No requests</td>
         </tr>
 
         <tr th:each="r : ${requests}">
             <td th:text="${r.requestId}">1</td>
             <td th:text="${r.readerName}">Reader</td>
             <td th:text="${r.bookTitle}">Book</td>
-            <td th:text="${r.requestType}">HOME</td>
 
             <td>
-                <span th:if="${r.overdue}" class="badge bg-danger">OVERDUE</span>
+                <span th:if="${r.requestType == 'HOME'}" th:text="#{request.type.HOME}">HOME</span>
+                <span th:if="${r.requestType == 'READING_ROOM'}" th:text="#{request.type.READING_ROOM}">READING_ROOM</span>
+            </td>
+
+            <td>
+                <span th:if="${r.overdue}" class="badge bg-danger" th:text="#{status.OVERDUE}">
+                    OVERDUE
+                </span>
 
                 <span th:if="${!r.overdue and r.status == 'PENDING'}"
-                      class="badge bg-warning text-dark">PENDING</span>
+                      class="badge bg-warning text-dark" th:text="#{status.PENDING}">
+                    PENDING
+                </span>
 
                 <span th:if="${!r.overdue and r.status == 'ISSUED'}"
-                      class="badge bg-primary">ISSUED</span>
+                      class="badge bg-primary" th:text="#{status.ISSUED}">
+                    ISSUED
+                </span>
 
                 <span th:if="${!r.overdue and r.status == 'PENDING_RETURN'}"
-                      class="badge bg-info text-dark">PENDING_RETURN</span>
+                      class="badge bg-info text-dark" th:text="#{status.PENDING_RETURN}">
+                    PENDING_RETURN
+                </span>
 
                 <span th:if="${!r.overdue and r.status == 'RETURNED'}"
-                      class="badge bg-success">RETURNED</span>
+                      class="badge bg-success" th:text="#{status.RETURNED}">
+                    RETURNED
+                </span>
 
                 <span th:if="${!r.overdue and r.status == 'CANCELLED'}"
-                      class="badge bg-secondary">CANCELLED</span>
+                      class="badge bg-secondary" th:text="#{status.CANCELLED}">
+                    CANCELLED
+                </span>
             </td>
 
             <td th:text="${r.returnDate != null ? r.returnDate : '-'}">-</td>
@@ -77,7 +93,10 @@
                       class="d-flex gap-1">
                     <input type="date" name="returnDate" class="form-control form-control-sm"
                            style="width:auto;" required>
-                    <button class="btn btn-sm btn-primary" type="submit">Issue</button>
+                    <button class="btn btn-sm btn-primary" type="submit"
+                            th:text="#{requests.issue}">
+                        Issue
+                    </button>
                 </form>
 
                 <form th:if="${session.currentUser != null
@@ -86,19 +105,24 @@
                       method="post"
                       th:action="@{'/librarian/requests/' + ${r.requestId} + '/return'}"
                       onsubmit="return confirm('Approve return?');">
-                    <button class="btn btn-sm btn-success" type="submit">Approve return</button>
+                    <button class="btn btn-sm btn-success" type="submit"
+                            th:text="#{requests.approveReturn}">
+                        Approve return
+                    </button>
                 </form>
 
                 <span th:if="${session.currentUser != null
                               and session.currentUser.role.name() == 'LIBRARIAN'
                               and r.status == 'ISSUED'}"
-                      class="text-muted small">
+                      class="text-muted small"
+                      th:text="#{requests.waitingReader}">
                     Waiting reader return
                 </span>
 
                 <span th:if="${session.currentUser != null
                               and session.currentUser.role.name() == 'ADMIN'}"
-                      class="text-muted small">
+                      class="text-muted small"
+                      th:text="#{requests.viewOnly}">
                     View only
                 </span>
             </td>

@@ -16,7 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Controller
 public class BookController {
-    private static final int PAGE_SIZE = 5;
+    private static final int PAGE_SIZE = 6;
+
     private final BookService bookService;
 
     public BookController(BookService bookService) {
@@ -25,9 +26,12 @@ public class BookController {
 
     @GetMapping("/books")
     public String list(@RequestParam(required = false) String search,
+                       @RequestParam(required = false) Integer authorId,
+                       @RequestParam(required = false) Integer genreId,
                        @RequestParam(defaultValue = "1") int page,
                        Model model) {
-        int total = bookService.getBookCount(search);
+
+        int total = bookService.getBookCount(search, authorId, genreId);
         int totalPages = Math.max(1, (int) Math.ceil((double) total / PAGE_SIZE));
 
         if (page < 1) {
@@ -38,10 +42,16 @@ public class BookController {
             page = totalPages;
         }
 
-        model.addAttribute("books", bookService.getBooks(search, page, PAGE_SIZE));
+        model.addAttribute("books", bookService.getBooks(search, authorId, genreId, page, PAGE_SIZE));
+        model.addAttribute("authors", bookService.getAuthors());
+        model.addAttribute("genres", bookService.getGenres());
+
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", totalPages);
+
         model.addAttribute("search", search);
+        model.addAttribute("selectedAuthorId", authorId);
+        model.addAttribute("selectedGenreId", genreId);
 
         return "books";
     }

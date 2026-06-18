@@ -75,7 +75,6 @@ public class RequestServiceImpl implements RequestService {
 
         request.setStatus("CANCELLED");
         requestDao.update(request);
-
         LOGGER.info("Request {} cancelled by reader {}", requestId, readerId);
     }
 
@@ -94,7 +93,6 @@ public class RequestServiceImpl implements RequestService {
 
         request.setStatus("PENDING_RETURN");
         requestDao.update(request);
-
         LOGGER.info("Reader {} requested return for request {}", readerId, requestId);
     }
 

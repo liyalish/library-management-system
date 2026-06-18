@@ -18,10 +18,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit tests for {@link RequestServiceImpl}, focused on the parts that do not require a
- * live database transaction: request submission validation and cancellation rules.
- */
 @ExtendWith(MockitoExtension.class)
 class RequestServiceImplTest {
 
@@ -33,6 +29,7 @@ class RequestServiceImplTest {
 
     @Test
     void submitRequest_validType_createsRequest() {
+        when(requestDao.countActiveByReader(1)).thenReturn(0);
         when(requestDao.create(any(BookRequest.class))).thenAnswer(inv -> inv.getArgument(0));
 
         BookRequest result = requestService.submitRequest(1, 2, "HOME");
@@ -40,6 +37,9 @@ class RequestServiceImplTest {
         assertEquals(1, result.getReaderId());
         assertEquals(2, result.getBookId());
         assertEquals("HOME", result.getRequestType());
+        assertEquals("PENDING", result.getStatus());
+
+        verify(requestDao).countActiveByReader(1);
         verify(requestDao).create(any(BookRequest.class));
     }
 
@@ -47,6 +47,17 @@ class RequestServiceImplTest {
     void submitRequest_invalidType_throwsException() {
         assertThrows(ServiceException.class,
                 () -> requestService.submitRequest(1, 2, "INVALID_TYPE"));
+
+        verify(requestDao, never()).create(any(BookRequest.class));
+    }
+
+    @Test
+    void submitRequest_whenReaderHasFiveActiveRequests_throwsException() {
+        when(requestDao.countActiveByReader(1)).thenReturn(5);
+
+        assertThrows(ServiceException.class,
+                () -> requestService.submitRequest(1, 2, "HOME"));
+
         verify(requestDao, never()).create(any(BookRequest.class));
     }
 
@@ -56,6 +67,7 @@ class RequestServiceImplTest {
         req.setRequestId(10);
         req.setReaderId(1);
         req.setStatus("PENDING");
+
         when(requestDao.findById(10)).thenReturn(Optional.of(req));
 
         requestService.cancelRequest(10, 1);
@@ -70,10 +82,12 @@ class RequestServiceImplTest {
         req.setRequestId(10);
         req.setReaderId(1);
         req.setStatus("PENDING");
+
         when(requestDao.findById(10)).thenReturn(Optional.of(req));
 
-        // reader 2 tries to cancel reader 1's request
-        assertThrows(ServiceException.class, () -> requestService.cancelRequest(10, 2));
+        assertThrows(ServiceException.class,
+                () -> requestService.cancelRequest(10, 2));
+
         verify(requestDao, never()).update(any(BookRequest.class));
     }
 
@@ -83,15 +97,65 @@ class RequestServiceImplTest {
         req.setRequestId(10);
         req.setReaderId(1);
         req.setStatus("ISSUED");
+
         when(requestDao.findById(10)).thenReturn(Optional.of(req));
 
-        assertThrows(ServiceException.class, () -> requestService.cancelRequest(10, 1));
+        assertThrows(ServiceException.class,
+                () -> requestService.cancelRequest(10, 1));
+
+        verify(requestDao, never()).update(any(BookRequest.class));
     }
 
     @Test
     void cancelRequest_notFound_throwsException() {
         when(requestDao.findById(404)).thenReturn(Optional.empty());
 
-        assertThrows(ServiceException.class, () -> requestService.cancelRequest(404, 1));
+        assertThrows(ServiceException.class,
+                () -> requestService.cancelRequest(404, 1));
+    }
+
+    @Test
+    void requestReturn_ownIssuedRequest_setsPendingReturn() {
+        BookRequest req = new BookRequest();
+        req.setRequestId(20);
+        req.setReaderId(1);
+        req.setStatus("ISSUED");
+
+        when(requestDao.findById(20)).thenReturn(Optional.of(req));
+
+        requestService.requestReturn(20, 1);
+
+        assertEquals("PENDING_RETURN", req.getStatus());
+        verify(requestDao).update(req);
+    }
+
+    @Test
+    void requestReturn_otherUsersRequest_throwsException() {
+        BookRequest req = new BookRequest();
+        req.setRequestId(20);
+        req.setReaderId(1);
+        req.setStatus("ISSUED");
+
+        when(requestDao.findById(20)).thenReturn(Optional.of(req));
+
+        assertThrows(ServiceException.class,
+                () -> requestService.requestReturn(20, 2));
+
+        verify(requestDao, never()).update(any(BookRequest.class));
+    }
+
+    @Test
+    void requestReturn_notIssued_throwsException() {
+        BookRequest req = new BookRequest();
+        req.setRequestId(20);
+        req.setReaderId(1);
+        req.setStatus("PENDING");
+
+        when(requestDao.findById(20)).thenReturn(Optional.of(req));
+
+        assertThrows(ServiceException.class,
+                () -> requestService.requestReturn(20, 1));
+
+        verify(requestDao, never()).update(any(BookRequest.class));
     }
 }
