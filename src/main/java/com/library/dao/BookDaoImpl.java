@@ -25,35 +25,20 @@ public class BookDaoImpl implements BookDao {
                    b.title,
                    b.description,
                    b.publish_year,
-
-                   COALESCE((
-                       SELECT string_agg(a.full_name, ', ' ORDER BY a.full_name)
-                       FROM book_authors ba
-                       JOIN authors a ON ba.author_id = a.author_id
-                       WHERE ba.book_id = b.book_id
-                   ), '') AS author_name,
-
-                   COALESCE((
-                       SELECT string_agg(ba.author_id::text, ',' ORDER BY ba.author_id)
-                       FROM book_authors ba
-                       WHERE ba.book_id = b.book_id
-                   ), '') AS author_ids,
-
-                   COALESCE((
-                       SELECT string_agg(g.name, ', ' ORDER BY g.name)
-                       FROM book_genres bg
-                       JOIN genres g ON bg.genre_id = g.genre_id
-                       WHERE bg.book_id = b.book_id
-                   ), '') AS genre_names,
-
-                   (
-                       SELECT COUNT(*)
-                       FROM book_copies bc
-                       WHERE bc.book_id = b.book_id
-                         AND bc.status = 'AVAILABLE'
-                   ) AS available_copies
-
+                   string_agg(DISTINCT a.full_name, ', ') AS author_name,
+                   string_agg(DISTINCT ba.author_id::text, ',') AS author_ids,
+                   string_agg(DISTINCT g.name, ', ') AS genre_names,
+                   COUNT(DISTINCT CASE WHEN bc.status = 'AVAILABLE' THEN bc.copy_id END) AS available_copies
             FROM books b
+            LEFT JOIN book_authors ba ON ba.book_id = b.book_id
+            LEFT JOIN authors a ON a.author_id = ba.author_id
+            LEFT JOIN book_genres bg ON bg.book_id = b.book_id
+            LEFT JOIN genres g ON g.genre_id = bg.genre_id
+            LEFT JOIN book_copies bc ON bc.book_id = b.book_id
+            """;
+
+    private static final String GROUP_BY_BOOK = """
+            GROUP BY b.book_id, b.title, b.description, b.publish_year
             """;
 
     @Override
@@ -99,7 +84,9 @@ public class BookDaoImpl implements BookDao {
 
     @Override
     public Optional<Book> findById(int bookId) {
-        String sql = SELECT_BASE + " WHERE b.book_id = ?";
+        String sql = SELECT_BASE + """
+                WHERE b.book_id = ?
+                """ + GROUP_BY_BOOK;
 
         try (Connection conn = pool.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -120,6 +107,24 @@ public class BookDaoImpl implements BookDao {
         StringBuilder sql = new StringBuilder(SELECT_BASE);
         List<Object> params = new ArrayList<>();
 
+        if (authorId != null && authorId > 0) {
+            sql.append("""
+                    JOIN book_authors ba_filter
+                      ON ba_filter.book_id = b.book_id
+                     AND ba_filter.author_id = ?
+                    """);
+            params.add(authorId);
+        }
+
+        if (genreId != null && genreId > 0) {
+            sql.append("""
+                    JOIN book_genres bg_filter
+                      ON bg_filter.book_id = b.book_id
+                     AND bg_filter.genre_id = ?
+                    """);
+            params.add(genreId);
+        }
+
         sql.append(" WHERE 1 = 1 ");
 
         if (search != null && !search.isBlank()) {
@@ -127,31 +132,9 @@ public class BookDaoImpl implements BookDao {
             params.add("%" + search.toLowerCase() + "%");
         }
 
-        if (authorId != null && authorId > 0) {
-            sql.append("""
-                    AND EXISTS (
-                        SELECT 1
-                        FROM book_authors ba_filter
-                        WHERE ba_filter.book_id = b.book_id
-                          AND ba_filter.author_id = ?
-                    )
-                    """);
-            params.add(authorId);
-        }
-
-        if (genreId != null && genreId > 0) {
-            sql.append("""
-                    AND EXISTS (
-                        SELECT 1
-                        FROM book_genres bg_filter
-                        WHERE bg_filter.book_id = b.book_id
-                          AND bg_filter.genre_id = ?
-                    )
-                    """);
-            params.add(genreId);
-        }
-
+        sql.append(GROUP_BY_BOOK);
         sql.append(" ORDER BY b.title LIMIT ? OFFSET ? ");
+
         params.add(limit);
         params.add(offset);
 
@@ -177,36 +160,32 @@ public class BookDaoImpl implements BookDao {
 
     @Override
     public int count(String search, Integer authorId, Integer genreId) {
-        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM books b WHERE 1 = 1 ");
+        StringBuilder sql = new StringBuilder("SELECT COUNT(DISTINCT b.book_id) FROM books b ");
         List<Object> params = new ArrayList<>();
-
-        if (search != null && !search.isBlank()) {
-            sql.append(" AND LOWER(b.title) LIKE ? ");
-            params.add("%" + search.toLowerCase() + "%");
-        }
 
         if (authorId != null && authorId > 0) {
             sql.append("""
-                    AND EXISTS (
-                        SELECT 1
-                        FROM book_authors ba_filter
-                        WHERE ba_filter.book_id = b.book_id
-                          AND ba_filter.author_id = ?
-                    )
+                    JOIN book_authors ba_filter
+                      ON ba_filter.book_id = b.book_id
+                     AND ba_filter.author_id = ?
                     """);
             params.add(authorId);
         }
 
         if (genreId != null && genreId > 0) {
             sql.append("""
-                    AND EXISTS (
-                        SELECT 1
-                        FROM book_genres bg_filter
-                        WHERE bg_filter.book_id = b.book_id
-                          AND bg_filter.genre_id = ?
-                    )
+                    JOIN book_genres bg_filter
+                      ON bg_filter.book_id = b.book_id
+                     AND bg_filter.genre_id = ?
                     """);
             params.add(genreId);
+        }
+
+        sql.append(" WHERE 1 = 1 ");
+
+        if (search != null && !search.isBlank()) {
+            sql.append(" AND LOWER(b.title) LIKE ? ");
+            params.add("%" + search.toLowerCase() + "%");
         }
 
         try (Connection conn = pool.getConnection();
@@ -326,7 +305,11 @@ public class BookDaoImpl implements BookDao {
             throw new SQLException("Book must have at least one author");
         }
 
-        String sql = "INSERT INTO book_authors (book_id, author_id) VALUES (?, ?)";
+        String sql = """
+                INSERT INTO book_authors (book_id, author_id)
+                VALUES (?, ?)
+                ON CONFLICT (book_id, author_id) DO NOTHING
+                """;
 
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             for (Integer authorId : authorIds) {
@@ -373,9 +356,9 @@ public class BookDaoImpl implements BookDao {
 
         book.setBookId(rs.getInt("book_id"));
         book.setTitle(rs.getString("title"));
-        book.setAuthorName(rs.getString("author_name"));
-        book.setAuthorIdsText(rs.getString("author_ids"));
-        book.setGenreNames(rs.getString("genre_names"));
+        book.setAuthorName(emptyIfNull(rs.getString("author_name")));
+        book.setAuthorIdsText(emptyIfNull(rs.getString("author_ids")));
+        book.setGenreNames(emptyIfNull(rs.getString("genre_names")));
         book.setDescription(rs.getString("description"));
 
         int year = rs.getInt("publish_year");
@@ -384,5 +367,9 @@ public class BookDaoImpl implements BookDao {
         book.setAvailableCopies(rs.getInt("available_copies"));
 
         return book;
+    }
+
+    private String emptyIfNull(String value) {
+        return value == null ? "" : value;
     }
 }

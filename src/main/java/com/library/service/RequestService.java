@@ -15,6 +15,8 @@ public interface RequestService {
 
     void requestReturn(int requestId, int readerId);
 
+    void rejectRequest(int requestId);
+
     void issueBook(int requestId, String returnDate);
 
     void returnBook(int requestId);

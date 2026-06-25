@@ -36,7 +36,7 @@ public class AdminController {
             page = totalPages;
         }
 
-        model.addAttribute("users", userService.getUsers(page, PAGE_SIZE));
+        model.addAttribute("users", userService.getUsers(page, PAGE_SIZE)); //send all users to html
         model.addAttribute("currentPage", page);
         model.addAttribute("totalPages", totalPages);
 
@@ -61,7 +61,7 @@ public class AdminController {
 
     @PostMapping("/admin/users/{id}/block")
     public String setBlocked(@PathVariable int id,
-                             @RequestParam boolean blocked,
+                             @RequestParam boolean blocked, //if true block, false unblock
                              RedirectAttributes ra) {
         try {
             userService.setBlocked(id, blocked);

@@ -8,6 +8,7 @@ import com.library.model.Genre;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -21,6 +22,7 @@ public class BookServiceImpl implements BookService {
         this.bookDao = bookDao;
     }
 
+    @PreAuthorize("hasRole('LIBRARIAN')")
     @Override
     public Book addBook(Book book) {
         Book created = bookDao.create(book);
@@ -55,12 +57,14 @@ public class BookServiceImpl implements BookService {
         return bookDao.findAllGenres();
     }
 
+    @PreAuthorize("hasRole('LIBRARIAN')")
     @Override
     public void updateBook(Book book) {
         bookDao.update(book);
         LOGGER.info("Updated book id: {}", book.getBookId());
     }
 
+    @PreAuthorize("hasRole('LIBRARIAN')")
     @Override
     public void deleteBook(int bookId) {
         bookDao.delete(bookId);

@@ -21,7 +21,7 @@ public final class ConnectionPool {
         int poolSize = PropertiesLoader.getInt("db.pool.size", 10);
 
         try {
-            // Ensure the driver is registered (explicit for clarity).
+            // Ensure the driver is registered
             Class.forName(PropertiesLoader.get("db.driver"));
         } catch (ClassNotFoundException e) {
             throw new IllegalStateException("JDBC driver not found", e);

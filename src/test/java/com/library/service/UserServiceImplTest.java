@@ -4,23 +4,26 @@ import com.library.dao.UserDao;
 import com.library.exception.ServiceException;
 import com.library.model.Role;
 import com.library.model.User;
-import com.library.util.PasswordUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,6 +31,9 @@ class UserServiceImplTest {
 
     @Mock
     private UserDao userDao;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -38,120 +44,123 @@ class UserServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        reader = new User();
-        reader.setUserId(1);
-        reader.setUsername("reader");
-        reader.setPasswordHash(PasswordUtil.hash("secret123"));
-        reader.setFullName("Test Reader");
-        reader.setEmail("reader@mail.com");
-        reader.setRole(Role.READER);
-        reader.setBlocked(false);
-
-        librarian = new User();
-        librarian.setUserId(2);
-        librarian.setUsername("librarian");
-        librarian.setPasswordHash(PasswordUtil.hash("secret123"));
-        librarian.setFullName("Main Librarian");
-        librarian.setEmail("librarian@mail.com");
-        librarian.setRole(Role.LIBRARIAN);
-        librarian.setBlocked(false);
-
-        admin = new User();
-        admin.setUserId(3);
-        admin.setUsername("admin");
-        admin.setPasswordHash(PasswordUtil.hash("secret123"));
-        admin.setFullName("System Admin");
-        admin.setEmail("admin@mail.com");
-        admin.setRole(Role.ADMIN);
-        admin.setBlocked(false);
+        reader = user(1, "reader", Role.READER);
+        librarian = user(2, "librarian", Role.LIBRARIAN);
+        admin = user(3, "admin", Role.ADMIN);
     }
 
     @Test
-    void register_withNewUsername_createsReader() {
+    void register_withNewUsernameCreatesReaderWithEncodedPassword() {
         when(userDao.findByUsername("bob")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("pass1234")).thenReturn("encoded-pass1234");
         when(userDao.create(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         User result = userService.register("bob", "pass1234", "Bob Jones", "bob@mail.com");
 
-        assertNotNull(result);
         assertEquals("bob", result.getUsername());
+        assertEquals("Bob Jones", result.getFullName());
+        assertEquals("bob@mail.com", result.getEmail());
         assertEquals(Role.READER, result.getRole());
-        assertTrue(PasswordUtil.matches("pass1234", result.getPasswordHash()));
+        assertEquals("encoded-pass1234", result.getPasswordHash());
+        assertNotEquals("pass1234", result.getPasswordHash());
 
-        verify(userDao).create(any(User.class));
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userDao).create(captor.capture());
+        assertEquals(Role.READER, captor.getValue().getRole());
+        assertEquals("encoded-pass1234", captor.getValue().getPasswordHash());
     }
 
     @Test
-    void register_withTakenUsername_throwsException() {
+    void register_withTakenUsernameThrowsException() {
         when(userDao.findByUsername("reader")).thenReturn(Optional.of(reader));
 
         assertThrows(ServiceException.class,
                 () -> userService.register("reader", "pass1234", "Reader", "r@mail.com"));
 
+        verify(userDao).findByUsername("reader");
         verify(userDao, never()).create(any(User.class));
     }
 
     @Test
-    void createLibrarian_withNewUsername_createsLibrarian() {
+    void createLibrarian_withNewUsernameCreatesLibrarianWithEncodedPassword() {
         when(userDao.findByUsername("lib2")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode("pass1234")).thenReturn("encoded-lib-pass");
         when(userDao.create(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
         User result = userService.createLibrarian("lib2", "pass1234", "Second Librarian", "lib2@mail.com");
 
-        assertNotNull(result);
         assertEquals("lib2", result.getUsername());
         assertEquals(Role.LIBRARIAN, result.getRole());
-        assertTrue(PasswordUtil.matches("pass1234", result.getPasswordHash()));
+        assertEquals("encoded-lib-pass", result.getPasswordHash());
 
-        verify(userDao).create(any(User.class));
+        ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+        verify(userDao).create(captor.capture());
+        assertEquals(Role.LIBRARIAN, captor.getValue().getRole());
+        assertEquals("encoded-lib-pass", captor.getValue().getPasswordHash());
     }
 
     @Test
-    void createLibrarian_withTakenUsername_throwsException() {
+    void createLibrarian_withTakenUsernameThrowsException() {
         when(userDao.findByUsername("librarian")).thenReturn(Optional.of(librarian));
 
         assertThrows(ServiceException.class,
                 () -> userService.createLibrarian("librarian", "pass1234", "Lib", "lib@mail.com"));
 
+        verify(userDao).findByUsername("librarian");
         verify(userDao, never()).create(any(User.class));
     }
 
     @Test
-    void authenticate_withCorrectPassword_returnsUser() {
+    void getByUsername_existingUserReturnsUser() {
         when(userDao.findByUsername("reader")).thenReturn(Optional.of(reader));
 
-        User result = userService.authenticate("reader", "secret123");
+        User result = userService.getByUsername("reader");
 
-        assertEquals("reader", result.getUsername());
+        assertSame(reader, result);
+        verify(userDao).findByUsername("reader");
+        verifyNoMoreInteractions(userDao);
     }
 
     @Test
-    void authenticate_withWrongPassword_throwsException() {
-        when(userDao.findByUsername("reader")).thenReturn(Optional.of(reader));
-
-        assertThrows(ServiceException.class,
-                () -> userService.authenticate("reader", "wrongpass"));
-    }
-
-    @Test
-    void authenticate_withUnknownUser_throwsException() {
+    void getByUsername_missingUserThrowsException() {
         when(userDao.findByUsername("ghost")).thenReturn(Optional.empty());
 
         assertThrows(ServiceException.class,
-                () -> userService.authenticate("ghost", "whatever"));
+                () -> userService.getByUsername("ghost"));
+
+        verify(userDao).findByUsername("ghost");
     }
 
     @Test
-    void authenticate_withBlockedUser_throwsException() {
-        reader.setBlocked(true);
-        when(userDao.findByUsername("reader")).thenReturn(Optional.of(reader));
+    void getUsers_pageOneUsesZeroOffset() {
+        List<User> users = List.of(reader, librarian);
+        when(userDao.findAll(5, 0)).thenReturn(users);
 
-        assertThrows(ServiceException.class,
-                () -> userService.authenticate("reader", "secret123"));
+        List<User> result = userService.getUsers(1, 5);
+
+        assertSame(users, result);
+        verify(userDao).findAll(5, 0);
     }
 
     @Test
-    void setBlocked_existingReader_updatesUser() {
+    void getUsers_pageThreeComputesOffset() {
+        userService.getUsers(3, 5);
+
+        verify(userDao).findAll(5, 10);
+    }
+
+    @Test
+    void getUserCountReturnsDaoCount() {
+        when(userDao.countAll()).thenReturn(3);
+
+        int result = userService.getUserCount();
+
+        assertEquals(3, result);
+        verify(userDao).countAll();
+    }
+
+    @Test
+    void setBlocked_existingReaderUpdatesUser() {
         when(userDao.findById(1)).thenReturn(Optional.of(reader));
 
         userService.setBlocked(1, true);
@@ -161,7 +170,17 @@ class UserServiceImplTest {
     }
 
     @Test
-    void setBlocked_admin_throwsException() {
+    void setBlocked_existingLibrarianUpdatesUser() {
+        when(userDao.findById(2)).thenReturn(Optional.of(librarian));
+
+        userService.setBlocked(2, true);
+
+        assertEquals(true, librarian.isBlocked());
+        verify(userDao).update(librarian);
+    }
+
+    @Test
+    void setBlocked_adminThrowsException() {
         when(userDao.findById(3)).thenReturn(Optional.of(admin));
 
         assertThrows(ServiceException.class,
@@ -171,7 +190,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    void setBlocked_unknownUser_throwsException() {
+    void setBlocked_unknownUserThrowsException() {
         when(userDao.findById(99)).thenReturn(Optional.empty());
 
         assertThrows(ServiceException.class,
@@ -181,7 +200,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    void deleteUser_librarian_deletesUser() {
+    void deleteUser_librarianDeletesUser() {
         when(userDao.findById(2)).thenReturn(Optional.of(librarian));
 
         userService.deleteUser(2);
@@ -190,7 +209,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    void deleteUser_reader_throwsException() {
+    void deleteUser_readerThrowsException() {
         when(userDao.findById(1)).thenReturn(Optional.of(reader));
 
         assertThrows(ServiceException.class,
@@ -200,7 +219,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    void deleteUser_admin_throwsException() {
+    void deleteUser_adminThrowsException() {
         when(userDao.findById(3)).thenReturn(Optional.of(admin));
 
         assertThrows(ServiceException.class,
@@ -210,7 +229,17 @@ class UserServiceImplTest {
     }
 
     @Test
-    void deleteOwnAccount_readerWithoutActiveRequests_deletesAccount() {
+    void deleteUser_unknownUserThrowsException() {
+        when(userDao.findById(99)).thenReturn(Optional.empty());
+
+        assertThrows(ServiceException.class,
+                () -> userService.deleteUser(99));
+
+        verify(userDao, never()).delete(99);
+    }
+
+    @Test
+    void deleteOwnAccount_readerWithoutActiveRequestsDeletesAccount() {
         when(userDao.findById(1)).thenReturn(Optional.of(reader));
         when(userDao.countActiveRequests(1)).thenReturn(0);
 
@@ -220,7 +249,7 @@ class UserServiceImplTest {
     }
 
     @Test
-    void deleteOwnAccount_readerWithActiveRequests_throwsException() {
+    void deleteOwnAccount_readerWithActiveRequestsThrowsException() {
         when(userDao.findById(1)).thenReturn(Optional.of(reader));
         when(userDao.countActiveRequests(1)).thenReturn(2);
 
@@ -231,19 +260,46 @@ class UserServiceImplTest {
     }
 
     @Test
-    void deleteOwnAccount_librarian_throwsException() {
+    void deleteOwnAccount_librarianThrowsException() {
         when(userDao.findById(2)).thenReturn(Optional.of(librarian));
 
         assertThrows(ServiceException.class,
                 () -> userService.deleteOwnAccount(2));
 
         verify(userDao, never()).delete(2);
+        verify(userDao, never()).countActiveRequests(2);
     }
 
     @Test
-    void getUsers_computesOffsetFromPage() {
-        userService.getUsers(3, 5);
+    void deleteOwnAccount_adminThrowsException() {
+        when(userDao.findById(3)).thenReturn(Optional.of(admin));
 
-        verify(userDao).findAll(5, 10);
+        assertThrows(ServiceException.class,
+                () -> userService.deleteOwnAccount(3));
+
+        verify(userDao, never()).delete(3);
+        verify(userDao, never()).countActiveRequests(3);
+    }
+
+    @Test
+    void deleteOwnAccount_unknownUserThrowsException() {
+        when(userDao.findById(99)).thenReturn(Optional.empty());
+
+        assertThrows(ServiceException.class,
+                () -> userService.deleteOwnAccount(99));
+
+        verify(userDao, never()).delete(99);
+    }
+
+    private User user(int id, String username, Role role) {
+        User user = new User();
+        user.setUserId(id);
+        user.setUsername(username);
+        user.setPasswordHash("encoded-" + username);
+        user.setFullName(username + " full name");
+        user.setEmail(username + "@mail.com");
+        user.setRole(role);
+        user.setBlocked(false);
+        return user;
     }
 }

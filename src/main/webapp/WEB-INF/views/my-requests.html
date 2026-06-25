@@ -79,6 +79,11 @@
                       class="badge bg-secondary" th:text="#{status.CANCELLED}">
                     CANCELLED
                 </span>
+
+                <span th:if="${!r.overdue and r.status == 'REJECTED'}"
+                      class="badge bg-danger" th:text="#{status.REJECTED}">
+                    REJECTED
+                </span>
             </td>
 
             <td th:text="${r.returnDate != null ? r.returnDate : '-'}">-</td>

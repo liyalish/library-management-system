@@ -1,12 +1,14 @@
 package com.library.service;
 
 import com.library.dao.BookRequestDao;
+import com.library.exception.DaoException;
 import com.library.exception.ServiceException;
 import com.library.model.BookRequest;
 import com.library.util.ConnectionPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -27,6 +29,7 @@ public class RequestServiceImpl implements RequestService {
         this.requestDao = requestDao;
     }
 
+    @PreAuthorize("hasRole('READER')")
     @Override
     public BookRequest submitRequest(int readerId, int bookId, String requestType) {
         if (!"HOME".equals(requestType) && !"READING_ROOM".equals(requestType)) {
@@ -45,21 +48,28 @@ public class RequestServiceImpl implements RequestService {
                 .status("PENDING")
                 .build();
 
-        BookRequest created = requestDao.create(request);
-        LOGGER.info("Reader {} requested book {}", readerId, bookId);
-        return created;
+        try {
+            BookRequest created = requestDao.create(request);
+            LOGGER.info("Reader {} requested book {}, reserved copy {}", readerId, bookId, created.getCopyId());
+            return created;
+        } catch (DaoException e) {
+            throw new ServiceException(e.getMessage(), e);
+        }
     }
 
+    @PreAuthorize("hasRole('READER')")
     @Override
     public List<BookRequest> getReaderRequests(int readerId) {
         return requestDao.findByReader(readerId);
     }
 
+    @PreAuthorize("hasAnyRole('LIBRARIAN', 'ADMIN')")
     @Override
     public List<BookRequest> getAllRequests() {
         return requestDao.findAll();
     }
 
+    @PreAuthorize("hasRole('READER')")
     @Override
     public void cancelRequest(int requestId, int readerId) {
         BookRequest request = requestDao.findById(requestId)
@@ -73,11 +83,12 @@ public class RequestServiceImpl implements RequestService {
             throw new ServiceException("Only pending requests can be cancelled");
         }
 
-        request.setStatus("CANCELLED");
-        requestDao.update(request);
+        releaseCopyAndUpdateStatus(requestId, request.getCopyId(), "CANCELLED");
+
         LOGGER.info("Request {} cancelled by reader {}", requestId, readerId);
     }
 
+    @PreAuthorize("hasRole('READER')")
     @Override
     public void requestReturn(int requestId, int readerId) {
         BookRequest request = requestDao.findById(requestId)
@@ -93,9 +104,26 @@ public class RequestServiceImpl implements RequestService {
 
         request.setStatus("PENDING_RETURN");
         requestDao.update(request);
+
         LOGGER.info("Reader {} requested return for request {}", readerId, requestId);
     }
 
+    @PreAuthorize("hasRole('LIBRARIAN')")
+    @Override
+    public void rejectRequest(int requestId) {
+        BookRequest request = requestDao.findById(requestId)
+                .orElseThrow(() -> new ServiceException("Request not found: " + requestId));
+
+        if (!"PENDING".equals(request.getStatus())) {
+            throw new ServiceException("Only pending requests can be rejected");
+        }
+
+        releaseCopyAndUpdateStatus(requestId, request.getCopyId(), "REJECTED");
+
+        LOGGER.info("Request {} rejected by librarian", requestId);
+    }
+
+    @PreAuthorize("hasRole('LIBRARIAN')")
     @Override
     public void issueBook(int requestId, String returnDate) {
         try (Connection conn = pool.getConnection()) {
@@ -107,18 +135,16 @@ public class RequestServiceImpl implements RequestService {
                     throw new ServiceException("Only pending requests can be issued");
                 }
 
-                int bookId = loadBookId(conn, requestId);
-                int copyId = findAvailableCopy(conn, bookId);
-
-                if (copyId == -1) {
-                    throw new ServiceException("No available copy for this book");
+                Integer copyId = loadCopyId(conn, requestId);
+                if (copyId == null) {
+                    throw new ServiceException("This request does not have a reserved copy");
                 }
 
                 markCopy(conn, copyId, "ISSUED");
                 updateRequestIssued(conn, requestId, copyId, returnDate);
 
                 conn.commit();
-                LOGGER.info("Issued request {} with copy {}", requestId, copyId);
+                LOGGER.info("Issued request {} with reserved copy {}", requestId, copyId);
 
             } catch (SQLException | ServiceException e) {
                 conn.rollback();
@@ -134,6 +160,7 @@ public class RequestServiceImpl implements RequestService {
         }
     }
 
+    @PreAuthorize("hasRole('LIBRARIAN')")
     @Override
     public void returnBook(int requestId) {
         try (Connection conn = pool.getConnection()) {
@@ -170,18 +197,29 @@ public class RequestServiceImpl implements RequestService {
         }
     }
 
-    private int loadBookId(Connection conn, int requestId) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT book_id FROM book_requests WHERE request_id = ?")) {
-            ps.setInt(1, requestId);
+    private void releaseCopyAndUpdateStatus(int requestId, Integer copyId, String status) {
+        try (Connection conn = pool.getConnection()) {
+            try {
+                conn.setAutoCommit(false);
 
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
+                if (copyId != null) {
+                    markCopy(conn, copyId, "AVAILABLE");
                 }
 
-                throw new SQLException("Request not found: " + requestId);
+                updateRequestStatus(conn, requestId, status);
+
+                conn.commit();
+
+            } catch (SQLException e) {
+                conn.rollback();
+                throw new ServiceException("Failed to update request status", e);
+
+            } finally {
+                conn.setAutoCommit(true);
             }
+
+        } catch (SQLException e) {
+            throw new ServiceException("Transaction error while updating request status", e);
         }
     }
 
@@ -212,17 +250,6 @@ public class RequestServiceImpl implements RequestService {
                 }
 
                 throw new SQLException("Request not found: " + requestId);
-            }
-        }
-    }
-
-    private int findAvailableCopy(Connection conn, int bookId) throws SQLException {
-        try (PreparedStatement ps = conn.prepareStatement(
-                "SELECT copy_id FROM book_copies WHERE book_id = ? AND status = 'AVAILABLE' LIMIT 1")) {
-            ps.setInt(1, bookId);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? rs.getInt(1) : -1;
             }
         }
     }

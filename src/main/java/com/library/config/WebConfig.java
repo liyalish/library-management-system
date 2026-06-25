@@ -24,6 +24,7 @@ import java.util.Locale;
 @EnableWebMvc
 @ComponentScan(basePackages = "com.library.controller")
 public class WebConfig implements WebMvcConfigurer {
+    //for html files
     @Bean
     public SpringResourceTemplateResolver templateResolver() {
         SpringResourceTemplateResolver resolver = new SpringResourceTemplateResolver();
@@ -34,6 +35,7 @@ public class WebConfig implements WebMvcConfigurer {
         return resolver;
     }
 
+    //for thymeleaf
     @Bean
     public SpringTemplateEngine templateEngine() {
         SpringTemplateEngine engine = new SpringTemplateEngine();
@@ -43,9 +45,8 @@ public class WebConfig implements WebMvcConfigurer {
         return engine;
     }
 
-    /**
-     * Connects Thymeleaf to Spring MVC as the view resolver.
-     */
+
+    //connects Thymeleaf to Spring MVC as the view resolver
     @Bean
     public ThymeleafViewResolver viewResolver() {
         ThymeleafViewResolver resolver = new ThymeleafViewResolver();
@@ -54,9 +55,8 @@ public class WebConfig implements WebMvcConfigurer {
         return resolver;
     }
 
-    /**
-     * Loads messages_en.properties, messages_ru.properties
-     */
+
+    //loads messages_en.properties, messages_ru.properties
     @Bean
     public MessageSource messageSource() {
         ReloadableResourceBundleMessageSource source = new ReloadableResourceBundleMessageSource();
@@ -65,10 +65,8 @@ public class WebConfig implements WebMvcConfigurer {
         return source;
     }
 
-    /**
-     * Uses the message source for Bean Validation messages, so validation texts can be
-     * localized and referenced as {validation.*} keys.
-     */
+
+    //uses the message source for Bean Validation messages
     @Override
     public Validator getValidator() {
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
@@ -76,9 +74,8 @@ public class WebConfig implements WebMvcConfigurer {
         return validator;
     }
 
-    /**
-     * Stores the chosen locale in the user session, defaulting to English.
-     */
+
+    //stores the chosen locale in the user session, defaulting to English
     @Bean
     public LocaleResolver localeResolver() {
         SessionLocaleResolver resolver = new SessionLocaleResolver();
@@ -86,9 +83,8 @@ public class WebConfig implements WebMvcConfigurer {
         return resolver;
     }
 
-    /**
-     * Allows switching language via a {@code ?lang=} request parameter.
-     */
+
+    //allows switching language via a  URL request parameter
     @Bean
     public LocaleChangeInterceptor localeChangeInterceptor() {
         LocaleChangeInterceptor interceptor = new LocaleChangeInterceptor();
@@ -99,15 +95,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(localeChangeInterceptor());
-
-        registry.addInterceptor(new com.library.interceptor.AuthInterceptor())
-                .addPathPatterns(
-                        "/admin/**",
-                        "/librarian/**",
-                        "/requests/**",
-                        "/reader/**",
-                        "/account/**"
-                );
     }
 
     @Override

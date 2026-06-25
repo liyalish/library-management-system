@@ -6,13 +6,13 @@ import com.library.model.User;
 import com.library.service.UserService;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
@@ -28,21 +28,6 @@ public class AuthController {
         return "login";
     }
 
-    @PostMapping("/login")
-    public String login(@RequestParam String username,
-                        @RequestParam String password,
-                        HttpSession session,
-                        Model model) {
-        try {
-            User user = userService.authenticate(username, password);
-            session.setAttribute("currentUser", user);
-            return "redirect:/books";
-        } catch (ServiceException e) {
-            model.addAttribute("loginError", true);
-            return "login";
-        }
-    }
-
     @GetMapping("/register")
     public String registerForm(Model model) {
         model.addAttribute("registrationForm", new RegistrationForm());
@@ -52,28 +37,27 @@ public class AuthController {
     @PostMapping("/register")
     public String register(@Valid @ModelAttribute("registrationForm") RegistrationForm form,
                            BindingResult result,
-                           HttpSession session,
                            Model model) {
         if (result.hasErrors()) {
             return "register";
         }
 
         try {
-            User user = userService.register(
+            userService.register(
                     form.getUsername(),
                     form.getPassword(),
                     form.getFullName(),
                     form.getEmail()
             );
 
-            session.setAttribute("currentUser", user);
-            return "redirect:/books";
+            return "redirect:/login?registered=true";
         } catch (ServiceException e) {
             model.addAttribute("registerError", e.getMessage());
             return "register";
         }
     }
 
+    @PreAuthorize("hasRole('READER')")
     @PostMapping("/account/delete")
     public String deleteOwnAccount(HttpSession session,
                                    RedirectAttributes ra) {
@@ -89,9 +73,8 @@ public class AuthController {
         }
     }
 
-    @GetMapping("/logout")
-    public String logout(HttpSession session) {
-        session.invalidate();
-        return "redirect:/login";
+    @GetMapping("/access-denied")
+    public String accessDenied() {
+        return "error-403";
     }
 }

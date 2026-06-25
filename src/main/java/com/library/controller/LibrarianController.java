@@ -25,24 +25,42 @@ public class LibrarianController {
     }
 
     @PostMapping("/librarian/requests/{id}/issue")
-    public String issue(@PathVariable int id, @RequestParam String returnDate, RedirectAttributes ra) {
+    public String issue(@PathVariable int id,
+                        @RequestParam String returnDate,
+                        RedirectAttributes ra) {
         try {
             requestService.issueBook(id, returnDate);
             ra.addFlashAttribute("message", "Book issued for request #" + id);
         } catch (ServiceException e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
+
         return "redirect:/librarian/requests";
     }
-    
+
+    @PostMapping("/librarian/requests/{id}/reject")
+    public String reject(@PathVariable int id,
+                         RedirectAttributes ra) {
+        try {
+            requestService.rejectRequest(id);
+            ra.addFlashAttribute("message", "Request #" + id + " rejected");
+        } catch (ServiceException e) {
+            ra.addFlashAttribute("error", e.getMessage());
+        }
+
+        return "redirect:/librarian/requests";
+    }
+
     @PostMapping("/librarian/requests/{id}/return")
-    public String returnBook(@PathVariable int id, RedirectAttributes ra) {
+    public String returnBook(@PathVariable int id,
+                             RedirectAttributes ra) {
         try {
             requestService.returnBook(id);
             ra.addFlashAttribute("message", "Book returned for request #" + id);
         } catch (ServiceException e) {
             ra.addFlashAttribute("error", e.getMessage());
         }
+
         return "redirect:/librarian/requests";
     }
 }

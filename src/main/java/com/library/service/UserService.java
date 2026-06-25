@@ -9,7 +9,7 @@ public interface UserService {
 
     User createLibrarian(String username, String plainPassword, String fullName, String email);
 
-    User authenticate(String username, String plainPassword);
+    User getByUsername(String username);
 
     List<User> getUsers(int page, int pageSize);
 

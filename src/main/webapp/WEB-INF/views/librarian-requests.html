@@ -48,7 +48,8 @@
 
             <td>
                 <span th:if="${r.requestType == 'HOME'}" th:text="#{request.type.HOME}">HOME</span>
-                <span th:if="${r.requestType == 'READING_ROOM'}" th:text="#{request.type.READING_ROOM}">READING_ROOM</span>
+                <span th:if="${r.requestType == 'READING_ROOM'}"
+                      th:text="#{request.type.READING_ROOM}">READING_ROOM</span>
             </td>
 
             <td>
@@ -80,28 +81,45 @@
                       class="badge bg-secondary" th:text="#{status.CANCELLED}">
                     CANCELLED
                 </span>
+
+                <span th:if="${!r.overdue and r.status == 'REJECTED'}"
+                      class="badge bg-danger" th:text="#{status.REJECTED}">
+                    REJECTED
+                </span>
             </td>
 
             <td th:text="${r.returnDate != null ? r.returnDate : '-'}">-</td>
 
             <td>
-                <form th:if="${session.currentUser != null
-                              and session.currentUser.role.name() == 'LIBRARIAN'
-                              and r.status == 'PENDING'}"
-                      method="post"
-                      th:action="@{'/librarian/requests/' + ${r.requestId} + '/issue'}"
-                      class="d-flex gap-1">
-                    <input type="date" name="returnDate" class="form-control form-control-sm"
-                           style="width:auto;" required>
-                    <button class="btn btn-sm btn-primary" type="submit"
-                            th:text="#{requests.issue}">
-                        Issue
-                    </button>
-                </form>
+                <div th:if="${session.currentUser != null
+                 and session.currentUser.role.name() == 'LIBRARIAN'
+                 and r.status == 'PENDING'}"
+                     class="d-flex gap-2 align-items-center">
+
+                    <form method="post"
+                          th:action="@{'/librarian/requests/' + ${r.requestId} + '/issue'}"
+                          class="d-flex gap-1">
+                        <input type="date" name="returnDate" class="form-control form-control-sm"
+                               style="width:auto;" required>
+                        <button class="btn btn-sm btn-primary" type="submit"
+                                th:text="#{requests.issue}">
+                            Issue
+                        </button>
+                    </form>
+
+                    <form method="post"
+                          th:action="@{'/librarian/requests/' + ${r.requestId} + '/reject'}"
+                          onsubmit="return confirm('Reject this request?');">
+                        <button class="btn btn-sm btn-outline-danger" type="submit"
+                                th:text="#{requests.reject}">
+                            Reject
+                        </button>
+                    </form>
+                </div>
 
                 <form th:if="${session.currentUser != null
-                              and session.currentUser.role.name() == 'LIBRARIAN'
-                              and r.status == 'PENDING_RETURN'}"
+                  and session.currentUser.role.name() == 'LIBRARIAN'
+                  and r.status == 'PENDING_RETURN'}"
                       method="post"
                       th:action="@{'/librarian/requests/' + ${r.requestId} + '/return'}"
                       onsubmit="return confirm('Approve return?');">
@@ -112,19 +130,19 @@
                 </form>
 
                 <span th:if="${session.currentUser != null
-                              and session.currentUser.role.name() == 'LIBRARIAN'
-                              and r.status == 'ISSUED'}"
+                and session.currentUser.role.name() == 'LIBRARIAN'
+                and r.status == 'ISSUED'}"
                       class="text-muted small"
                       th:text="#{requests.waitingReader}">
                     Waiting reader return
-                </span>
+    </span>
 
                 <span th:if="${session.currentUser != null
-                              and session.currentUser.role.name() == 'ADMIN'}"
+                and session.currentUser.role.name() == 'ADMIN'}"
                       class="text-muted small"
                       th:text="#{requests.viewOnly}">
-                    View only
-                </span>
+        View only
+    </span>
             </td>
         </tr>
         </tbody>

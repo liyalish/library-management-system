@@ -4,22 +4,24 @@ import com.library.dao.UserDao;
 import com.library.exception.ServiceException;
 import com.library.model.Role;
 import com.library.model.User;
-import com.library.util.PasswordUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class UserServiceImpl implements UserService {
     private static final Logger LOGGER = LoggerFactory.getLogger(UserServiceImpl.class);
 
     private final UserDao userDao;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserServiceImpl(UserDao userDao) {
+    public UserServiceImpl(UserDao userDao, PasswordEncoder passwordEncoder) {
         this.userDao = userDao;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -30,7 +32,7 @@ public class UserServiceImpl implements UserService {
 
         User user = new User();
         user.setUsername(username);
-        user.setPasswordHash(PasswordUtil.hash(plainPassword));
+        user.setPasswordHash(passwordEncoder.encode(plainPassword));
         user.setFullName(fullName);
         user.setEmail(email);
         user.setRole(Role.READER);
@@ -41,6 +43,7 @@ public class UserServiceImpl implements UserService {
         return created;
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Override
     public User createLibrarian(String username, String plainPassword, String fullName, String email) {
         if (userDao.findByUsername(username).isPresent()) {
@@ -49,7 +52,7 @@ public class UserServiceImpl implements UserService {
 
         User user = new User();
         user.setUsername(username);
-        user.setPasswordHash(PasswordUtil.hash(plainPassword));
+        user.setPasswordHash(passwordEncoder.encode(plainPassword));
         user.setFullName(fullName);
         user.setEmail(email);
         user.setRole(Role.LIBRARIAN);
@@ -61,36 +64,25 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User authenticate(String username, String plainPassword) {
-        Optional<User> found = userDao.findByUsername(username);
-
-        if (found.isEmpty() || !PasswordUtil.matches(plainPassword, found.get().getPasswordHash())) {
-            LOGGER.warn("Failed login attempt for username: {}", username);
-            throw new ServiceException("Invalid username or password");
-        }
-
-        User user = found.get();
-
-        if (user.isBlocked()) {
-            throw new ServiceException("This account has been blocked");
-        }
-
-        LOGGER.info("User logged in: {}", username);
-
-        return user;
+    public User getByUsername(String username) {
+        return userDao.findByUsername(username)
+                .orElseThrow(() -> new ServiceException("User not found: " + username));
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Override
     public List<User> getUsers(int page, int pageSize) {
         int offset = (page - 1) * pageSize;
         return userDao.findAll(pageSize, offset);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Override
     public int getUserCount() {
         return userDao.countAll();
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Override
     public void setBlocked(int userId, boolean blocked) {
         User user = userDao.findById(userId)
@@ -106,6 +98,7 @@ public class UserServiceImpl implements UserService {
         LOGGER.info("User {} blocked={}", userId, blocked);
     }
 
+    @PreAuthorize("hasRole('ADMIN')")
     @Override
     public void deleteUser(int userId) {
         User user = userDao.findById(userId)
@@ -119,6 +112,7 @@ public class UserServiceImpl implements UserService {
         LOGGER.info("Deleted librarian {}", userId);
     }
 
+    @PreAuthorize("hasRole('READER')")
     @Override
     public void deleteOwnAccount(int userId) {
         User user = userDao.findById(userId)

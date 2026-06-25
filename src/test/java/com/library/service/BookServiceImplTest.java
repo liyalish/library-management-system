@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +41,7 @@ class BookServiceImplTest {
 
         assertSame(book, result);
         verify(bookDao).create(book);
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
@@ -54,6 +56,7 @@ class BookServiceImplTest {
 
         assertSame(book, result);
         verify(bookDao).findById(1);
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
@@ -63,22 +66,33 @@ class BookServiceImplTest {
         assertThrows(ServiceException.class, () -> bookService.getBook(99));
 
         verify(bookDao).findById(99);
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
-    void getBooksShouldUsePaginationAndFilters() {
-        Book book = new Book();
-        book.setBookId(1);
-        book.setTitle("1984");
+    void getBooksShouldUsePaginationAndFiltersForFirstPage() {
+        List<Book> books = List.of(book(1, "Clean Code"));
 
-        List<Book> books = List.of(book);
+        when(bookDao.findAll("clean", 2, 3, 6, 0)).thenReturn(books);
 
-        when(bookDao.findAll("java", 2, 3, 5, 5)).thenReturn(books);
-
-        List<Book> result = bookService.getBooks("java", 2, 3, 2, 5);
+        List<Book> result = bookService.getBooks("clean", 2, 3, 1, 6);
 
         assertSame(books, result);
-        verify(bookDao).findAll("java", 2, 3, 5, 5);
+        verify(bookDao).findAll("clean", 2, 3, 6, 0);
+        verifyNoMoreInteractions(bookDao);
+    }
+
+    @Test
+    void getBooksShouldUsePaginationAndFiltersForSecondPage() {
+        List<Book> books = List.of(book(2, "Java"));
+
+        when(bookDao.findAll("java", 5, 7, 10, 10)).thenReturn(books);
+
+        List<Book> result = bookService.getBooks("java", 5, 7, 2, 10);
+
+        assertSame(books, result);
+        verify(bookDao).findAll("java", 5, 7, 10, 10);
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
@@ -89,11 +103,15 @@ class BookServiceImplTest {
 
         assertEquals(7, result);
         verify(bookDao).count("java", 2, 3);
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
     void getAuthorsShouldReturnAuthors() {
-        List<Author> authors = List.of(new Author(1, "George Orwell"));
+        List<Author> authors = List.of(
+                new Author(1, "George Orwell"),
+                new Author(2, "Jane Austen")
+        );
 
         when(bookDao.findAllAuthors()).thenReturn(authors);
 
@@ -101,11 +119,15 @@ class BookServiceImplTest {
 
         assertSame(authors, result);
         verify(bookDao).findAllAuthors();
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
     void getGenresShouldReturnGenres() {
-        List<Genre> genres = List.of(new Genre(1, "Fiction"));
+        List<Genre> genres = List.of(
+                new Genre(1, "Fiction"),
+                new Genre(2, "Science")
+        );
 
         when(bookDao.findAllGenres()).thenReturn(genres);
 
@@ -113,17 +135,17 @@ class BookServiceImplTest {
 
         assertSame(genres, result);
         verify(bookDao).findAllGenres();
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
     void updateBookShouldCallDao() {
-        Book book = new Book();
-        book.setBookId(1);
-        book.setTitle("Updated");
+        Book book = book(1, "Updated");
 
         bookService.updateBook(book);
 
         verify(bookDao).update(book);
+        verifyNoMoreInteractions(bookDao);
     }
 
     @Test
@@ -131,5 +153,13 @@ class BookServiceImplTest {
         bookService.deleteBook(1);
 
         verify(bookDao).delete(1);
+        verifyNoMoreInteractions(bookDao);
+    }
+
+    private Book book(int id, String title) {
+        Book book = new Book();
+        book.setBookId(id);
+        book.setTitle(title);
+        return book;
     }
 }
